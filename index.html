@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Vídeos - Achadinhos 360</title>
+    
+    <!-- Conectando o App e o Ícone -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <meta name="theme-color" content="#f97316">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .glass-panel { background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .gradient-text { background: linear-gradient(135deg, #f97316, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .spinner { border: 3px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #f97316; width: 24px; height: 24px; animation: spin 1s ease-in-out infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        tbody tr { transition: all 0.3s ease; }
+        
+        /* Sistema de Avisos (Toast) */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 50; display: flex; flex-direction: column; gap: 10px; }
+        .toast { padding: 12px 20px; border-radius: 8px; color: white; font-size: 14px; font-weight: 500; box-shadow: 0 4px 6px rgba(0,0,0,0.1); opacity: 0; transform: translateY(20px); transition: all 0.3s ease; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background-color: #10b981; }
+        .toast.error { background-color: #ef4444; }
+        .toast.warning { background-color: #f59e0b; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 p-4 md:p-8">
+
+    <div id="toast-container"></div>
+
+    <div class="max-w-[1400px] mx-auto">
+        <header class="mb-8 text-center flex flex-col items-center">
+            <h1 class="text-4xl font-bold mb-2">Máquina de Posts <span class="gradient-text">Afiliado IA</span></h1>
+            <p class="text-slate-500 mb-4">Converta vídeos do Telegram em postagens (Insta e Shopee) automaticamente. Tudo é salvo no seu navegador!</p>
+            
+            <div class="flex flex-wrap gap-4 justify-center items-center w-full max-w-2xl">
+                <input type="text" id="apiKey" value="" 
+                       class="flex-1 bg-slate-100 border border-slate-300 text-slate-500 rounded-lg p-3 outline-none font-mono text-xs focus:border-orange-500 focus:bg-white transition-colors shadow-sm" placeholder="Sua Chave API Gemini (Cole aqui)">
+                <button onclick="exportarCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg text-sm shadow-md transition-colors flex items-center gap-2">
+                    <span>📊</span> Exportar para Excel (CSV)
+                </button>
+                <button onclick="limparBancoDeDados()" class="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 px-4 rounded-lg text-sm shadow-sm transition-colors border border-red-200" title="Apagar todos os dados salvos">
+                    🗑️ Limpar Tudo
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <label class="glass-panel rounded-2xl p-6 cursor-pointer block border-2 border-slate-200 hover:border-orange-400 bg-orange-50/10 transition-colors text-center relative overflow-hidden group">
+                <input type="file" id="htmlUpload" accept=".html" class="hidden" />
+                <h2 class="text-xl font-bold mb-2 text-orange-600">Passo 1: Ler Telegram</h2>
+                <p class="text-sm text-slate-600 mb-4">Envie o arquivo <strong>messages.html</strong> para mapear os links originais.</p>
+                <div class="inline-flex items-center justify-center p-3 rounded-xl bg-orange-100 text-orange-700 font-semibold text-sm w-full shadow-sm border border-orange-200">
+                    <span id="htmlStatus">📁 Clique para selecionar messages.html</span>
+                </div>
+            </label>
+
+            <label class="glass-panel rounded-2xl p-6 cursor-pointer block border-2 border-slate-200 hover:border-fuchsia-400 bg-fuchsia-50/10 transition-colors text-center relative overflow-hidden group">
+                <input id="videoUpload" type="file" accept="video/mp4,video/quicktime,video/webm" multiple class="hidden" />
+                <h2 class="text-xl font-bold mb-2 text-fuchsia-700">Passo 2: Analisar Vídeos</h2>
+                <p class="text-sm text-slate-600 mb-4">Selecione os vídeos <strong>(.mp4)</strong> exportados (pode ser vários).</p>
+                <div class="inline-flex items-center justify-center p-3 rounded-xl bg-fuchsia-100 text-fuchsia-700 font-semibold text-sm w-full shadow-sm border border-fuchsia-200">
+                    <span>🎬 Clique para enviar vídeos e Gerar Posts</span>
+                </div>
+            </label>
+        </div>
+
+        <div class="glass-panel rounded-2xl overflow-hidden shadow-sm" id="resultsContainer">
+            <div class="bg-white border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex gap-6 items-center w-full md:w-auto overflow-x-auto">
+                    <button id="tabPendentes" onclick="mudarAba('pendentes')" class="font-bold text-orange-600 border-b-2 border-orange-600 pb-1 whitespace-nowrap transition-colors text-sm md:text-base">
+                        Para Postar (<span id="countPendentes">0</span>)
+                    </button>
+                    <button id="tabPostados" onclick="mudarAba('postados')" class="font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent pb-1 whitespace-nowrap transition-colors text-sm md:text-base">
+                        Postados (<span id="countPostados">0</span>)
+                    </button>
+                </div>
+                <div class="relative w-full md:w-72">
+                    <input type="text" id="searchInput" placeholder="Buscar produto ou legenda..." oninput="filtrarTabela()" 
+                           class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:border-orange-500 shadow-sm transition-all">
+                    <span class="absolute left-3 top-2.5 text-slate-400">🔍</span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[1100px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
+                            <th class="px-6 py-4 font-bold w-1/5">Vídeo & Produto</th>
+                            <th class="px-6 py-4 font-bold w-1/4">Gestão de Links</th>
+                            <th class="px-6 py-4 font-bold w-auto">Legendas (Insta & Shopee)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaCorpoPendentes" class="divide-y divide-slate-100 bg-white"></tbody>
+                    <tbody id="tabelaCorpoPostados" class="divide-y divide-slate-100 bg-slate-50 hidden"></tbody>
+                </table>
+                <div id="emptyState" class="p-12 text-center text-slate-400 hidden">
+                    <p class="text-lg">Nenhuma postagem encontrada.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Registrando o Service Worker para permitir a instalação no celular
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('App Registrado com Sucesso!', reg))
+                    .catch(err => console.log('Erro ao registrar App:', err));
+            });
+        }
+
+        // Sistema de Banco de Dados Local (LocalStorage)
+        let linksDoTelegram = {}; 
+        let bancoDePostagens = []; // Armazena todas as postagens salvas
+
+        // Função utilitária para exibir alertas bonitos
+        function mostrarAviso(mensagem, tipo = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${tipo}`;
+            toast.innerText = mensagem;
+            container.appendChild(toast);
+            
+            // Animação de entrada
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Some após 4 segundos
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        function salvarBanco() {
+            localStorage.setItem('achadinhos_links', JSON.stringify(linksDoTelegram));
+            localStorage.setItem('achadinhos_posts', JSON.stringify(bancoDePostagens));
+            atualizarContadores();
+        }
+
+        function carregarBanco() {
+            const linksSalvos = localStorage.getItem('achadinhos_links');
+            const postsSalvos = localStorage.getItem('achadinhos_posts');
+            
+            if (linksSalvos) {
+                linksDoTelegram = JSON.parse(linksSalvos);
+                const count = Object.keys(linksDoTelegram).length;
+                if(count > 0) {
+                    const statusEl = document.getElementById('htmlStatus');
+                    statusEl.innerHTML = `✅ ${count} links salvos na memória!`;
+                    statusEl.className = "inline-flex items-center justify-center p-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm w-full shadow-sm border border-emerald-200";
+                }
+            }
+
+            if (postsSalvos) {
+                bancoDePostagens = JSON.parse(postsSalvos);
+                bancoDePostagens.forEach(post => {
+                    renderizarLinhaSalva(post);
+                });
+                atualizarContadores();
+            }
+        }
+
+        function limparBancoDeDados() {
+            mostrarAviso("Aviso: Limpando todos os dados em 3 segundos...", "warning");
+            setTimeout(() => {
+                localStorage.removeItem('achadinhos_links');
+                localStorage.removeItem('achadinhos_posts');
+                location.reload();
+            }, 3000);
+        }
+
+        // Chama o carregamento assim que a página abre
+        window.addEventListener('DOMContentLoaded', carregarBanco);
+
+        document.getElementById('htmlUpload').addEventListener('change', async function(e) {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            let linksAdicionadosNestaRodada = 0;
+            const statusEl = document.getElementById('htmlStatus');
+            statusEl.innerHTML = `⏳ Processando ${files.length} arquivo(s)...`;
+            
+            try {
+                for(let i = 0; i < files.length; i++) {
+                    const file = files[i];
+                    
+                    // Lê o arquivo de forma assíncrona para não travar a tela
+                    const htmlContent = await new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = event => resolve(event.target.result);
+                        reader.onerror = error => reject(error);
+                        reader.readAsText(file);
+                    });
+
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlContent, 'text/html');
+                    const messages = doc.querySelectorAll('.message.default');
+                    
+                    Array.from(messages).forEach((msg) => {
+                        let shopeeLink = '';
+                        const textElement = msg.querySelector('.text');
+                        
+                        if (textElement) {
+                            const links = textElement.querySelectorAll('a');
+                            Array.from(links).forEach(l => {
+                                const href = l.getAttribute('href') || '';
+                                if (href.includes('shopee.com') || l.textContent.includes('shopee.com')) {
+                                    shopeeLink = href || l.textContent.trim();
+                                }
+                            });
+                            if (!shopeeLink) {
+                                const match = textElement.textContent.match(/https?:\/\/[^\s]+shopee\.com[^\s]+/i);
+                                if (match) shopeeLink = match[0];
+                            }
+                        }
+
+                        let videoName = '';
+                        const videoAnchor = msg.querySelector('.video_file_wrap, .media_wrap .video_file, .media_wrap a.video_file');
+                        const imgThumb = msg.querySelector('img.video_file');
+
+                        if (videoAnchor && videoAnchor.getAttribute('href')) {
+                            videoName = videoAnchor.getAttribute('href').split('/').pop();
+                        } else if (imgThumb && imgThumb.getAttribute('src')) {
+                            videoName = imgThumb.getAttribute('src').split('/').pop().replace('_thumb.jpg', '');
+                        }
+                        
+                        if (videoName && shopeeLink) {
+                            linksDoTelegram[videoName] = shopeeLink;
+                            linksAdicionadosNestaRodada++;
+                        }
+                    });
+                }
+
+                if (linksAdicionadosNestaRodada > 0) {
+                    salvarBanco(); // Salva os links novos na memória
+                    
+                    // Conta o total absoluto que tem na memória agora
+                    const totalNoBanco = Object.keys(linksDoTelegram).length;
+                    
+                    statusEl.innerHTML = `✅ ${totalNoBanco} links totais na memória!`;
+                    statusEl.className = "inline-flex items-center justify-center p-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm w-full shadow-sm border border-emerald-200";
+                    mostrarAviso(`+${linksAdicionadosNestaRodada} links novos importados com sucesso! Total agora: ${totalNoBanco}`, "success");
+                } else {
+                    statusEl.innerHTML = `⚠️ Nenhum link novo achado`;
+                    mostrarAviso("Nenhum link novo da Shopee encontrado nestes arquivos HTML.", "warning");
+                }
+            } catch (error) {
+                mostrarAviso("Erro ao processar os arquivos HTML.", "error");
+            }
+        });
+
+        document.getElementById('videoUpload').addEventListener('change', async function(e) {
+            const files = e.target.files;
+            if (files.length === 0) return;
+
+            const apiKey = document.getElementById('apiKey').value.trim();
+            if (!apiKey) {
+                mostrarAviso("Por favor, preencha a chave da API do Gemini.", "error");
+                return;
+            }
+
+            mudarAba('pendentes');
+            const tbody = document.getElementById('tabelaCorpoPendentes');
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const originalLink = linksDoTelegram[file.name] || "Link não encontrado no arquivo HTML.";
+                
+                // Verifica se já existe um post com esse nome de vídeo para evitar duplicata (reconecta o vídeo)
+                const postExistente = bancoDePostagens.find(p => p.videoNome === file.name);
+                if(postExistente) {
+                    mostrarAviso(`Vídeo ${file.name} reconectado aos dados salvos!`, "success");
+                    // Atualiza a visualização com o arquivo real para poder baixar/assistir
+                    const trExistente = document.getElementById(postExistente.id);
+                    if(trExistente) {
+                        const tdVideo = trExistente.querySelector('.video-container-cell');
+                        const videoUrl = URL.createObjectURL(file);
+                        tdVideo.innerHTML = `
+                            <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 shadow-sm border border-slate-200">
+                                <video src="${videoUrl}" class="w-full h-full object-cover" controls></video>
+                            </div>
+                            <h4 class="font-bold text-slate-800 text-sm leading-tight mt-2 produto-nome">${postExistente.produto}</h4>
+                            <p class="text-[10px] text-slate-400 mt-1 truncate w-32" title="${file.name}">${file.name}</p>
+                            <a href="${videoUrl}" download="${file.name}" class="mt-2 inline-block w-full text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 rounded transition-colors shadow-sm">⬇️ Baixar</a>
+                        `;
+                    }
+                    continue; // Pula a IA porque já temos os dados
+                }
+
+                const rowId = 'row-' + Date.now() + '-' + i;
+                const tr = document.createElement('tr');
+                tr.id = rowId;
+                tr.className = "hover:bg-slate-50 transition-colors item-postagem";
+                
+                tr.innerHTML = `
+                    <td class="px-6 py-4 align-top">
+                        <div class="w-32 h-40 bg-slate-200 animate-pulse rounded-lg flex flex-col items-center justify-center mb-2">
+                            <div class="spinner border-orange-500 border-t-transparent"></div>
+                        </div>
+                        <div class="h-3 bg-slate-200 rounded animate-pulse w-3/4"></div>
+                    </td>
+                    <td class="px-6 py-4 align-top">
+                        <div class="h-10 bg-slate-200 rounded animate-pulse mb-3 w-full"></div>
+                        <div class="h-12 bg-slate-200 rounded animate-pulse w-full"></div>
+                    </td>
+                    <td class="px-6 py-4 align-top">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div>
+                            <div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div>
+                        </div>
+                    </td>
+                `;
+                tbody.prepend(tr);
+                atualizarContadores();
+
+                try {
+                    const framesBase64 = await extrairFlipbook(file);
+                    const iaData = await analisarImagemGemini(framesBase64, apiKey);
+                    
+                    // Cria o objeto para salvar no banco
+                    const novoPost = {
+                        id: rowId,
+                        videoNome: file.name,
+                        produto: iaData.produto,
+                        linkOriginal: originalLink,
+                        linkAfiliado: "",
+                        legendaInsta: iaData.legenda_instagram,
+                        legendaShopee: iaData.legenda_shopee,
+                        status: 'pendente'
+                    };
+                    
+                    bancoDePostagens.push(novoPost);
+                    salvarBanco();
+                    
+                    atualizarLinhaTabelaDOM(rowId, file, novoPost);
+                } catch (error) {
+                    console.error(error);
+                    atualizarLinhaErro(rowId, file, error.message, originalLink);
+                }
+                
+                // Pausa reduzida para 1.5s (Conta Paga) para não sobrecarregar
+                if (i < files.length - 1) {
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+            }
+        });
+
+        function extrairFlipbook(file) {
+            return new Promise((resolve, reject) => {
+                const video = document.createElement('video');
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const frames = [];
+                const maxFrames = 10; 
+
+                video.muted = true;
+                video.playsInline = true; 
+                video.preload = 'auto';
+                video.src = URL.createObjectURL(file);
+                
+                video.onloadeddata = () => {
+                    canvas.width = 480; 
+                    canvas.height = (video.videoHeight / video.videoWidth) * 480; 
+                    
+                    let currentFrame = 1;
+                    const interval = video.duration / maxFrames;
+
+                    video.onseeked = () => {
+                        try {
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+                            frames.push({ inlineData: { data: base64Data, mimeType: "image/jpeg" } });
+
+                            currentFrame++;
+                            if (currentFrame <= maxFrames) {
+                                video.currentTime = interval * currentFrame - (interval / 2);
+                            } else {
+                                resolve(frames);
+                            }
+                        } catch (e) {
+                            reject(new Error("Falha ao capturar imagem. Navegador bloqueou a extração."));
+                        }
+                    };
+                    
+                    video.currentTime = interval / 2; 
+                };
+
+                video.onerror = () => {
+                    reject(new Error(`O formato do vídeo "${file.name}" não é suportado pelo navegador. Verifique se é MP4.`));
+                };
+
+                video.load();
+            });
+        }
+
+        async function analisarImagemGemini(framesArray, apiKey) {
+            const prompt = `Você é um Copywriter Especialista em Marketing de Afiliados. Identifique o produto nas imagens e crie:
+            
+            Retorne APENAS um objeto JSON válido, EXATAMENTE com esta estrutura, sem crases:
+            {
+                "produto": "Nome curto e chamativo do produto",
+                "legenda_instagram": "Legenda persuasiva e envolvente para o Instagram Reels. Foque no problema que ele resolve. Use emojis. Finalize indicando o link na bio com: [LINK AQUI]. É OBRIGATÓRIO incluir de 4 a 7 hashtags estratégicas no final (ex: #achadinhos #shopee #comprasonline).",
+                "legenda_shopee": "Texto DIRETO para a Shopee. MÁXIMO 140 CARACTERES no total! Finalize com: [LINK AQUI] e inclua 2 ou 3 hashtags curtas no final."
+            }`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }, ...framesArray] }],
+                generationConfig: { temperature: 0.7 }
+            };
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errMsg = errorData?.error?.message || response.statusText;
+                throw new Error(errMsg);
+            }
+
+            const data = await response.json();
+            let textoResposta = data.candidates[0].content.parts[0].text;
+            textoResposta = textoResposta.replace(/```json/gi, '').replace(/```/g, '').trim();
+            
+            return JSON.parse(textoResposta);
+        }
+
+        // Reconstrói a linha baseada nos dados do LocalStorage (Sem o arquivo de vídeo)
+        function renderizarLinhaSalva(post) {
+            const rowId = post.id;
+            const tbody = post.status === 'postado' ? document.getElementById('tabelaCorpoPostados') : document.getElementById('tabelaCorpoPendentes');
+            
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+            tr.className = "hover:bg-slate-50 transition-colors item-postagem";
+            
+            // Layout de quando o vídeo não está na memória (foi salvo antes)
+            const videoLayout = `
+                <div class="w-32 h-40 bg-slate-100 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center mb-2 p-2 text-center text-slate-400">
+                    <span class="text-2xl mb-1">📁</span>
+                    <span class="text-[9px] leading-tight font-semibold">Vídeo Salvo na Memória</span>
+                </div>
+                <h4 class="font-bold text-slate-800 text-sm leading-tight mt-2 produto-nome">${post.produto}</h4>
+                <p class="text-[10px] text-slate-400 mt-1 truncate w-32" title="${post.videoNome}">${post.videoNome}</p>
+                <div class="mt-2 text-[9px] text-orange-500 font-semibold leading-tight text-center">Para ver o vídeo, reenvie o arquivo</div>
+            `;
+
+            const btnPostadoHtml = post.status === 'postado' 
+                ? `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-slate-400 hover:bg-slate-500 text-white font-bold py-2 rounded text-xs transition-colors shadow-sm">⏪ Desfazer</button>`
+                : `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded text-xs transition-colors shadow-sm">✅ Marcar Postado</button>`;
+
+            tr.innerHTML = `
+                <td class="px-6 py-4 align-top search-target video-container-cell">
+                    ${videoLayout}
+                </td>
+                <td class="px-6 py-4 align-top">
+                    <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl mb-3">
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">1. Link Original</label>
+                        <a href="${post.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block link-original-texto" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${post.linkOriginal}</a>
+                    </div>
+                    <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
+                        <label class="text-[10px] uppercase font-bold text-orange-700 block mb-1">2. Seu Link Afiliado</label>
+                        <input type="url" placeholder="Cole aqui..." value="${post.linkAfiliado || ''}" class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded p-2 text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
+                    </div>
+                </td>
+                <td class="px-6 py-4 align-top search-target">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-fuchsia-600 block mb-1">📱 Instagram</label>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${post.legendaInsta.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaInsta.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaInsta}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-insta')" class="w-full mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Insta</button>
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-orange-600 block mb-1">🛍️ Shopee (Curto)</label>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${post.legendaShopee.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaShopee.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaShopee}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-shopee')" class="w-full mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Shopee</button>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        ${btnPostadoHtml}
+                        <button onclick="excluirPostagem('${rowId}')" class="bg-red-50 hover:bg-red-100 text-red-500 font-bold py-2 px-3 rounded text-xs transition-colors" title="Excluir Definitivamente">🗑️</button>
+                    </div>
+                </td>
+            `;
+            tbody.prepend(tr);
+        }
+
+        // Renderiza linha nova gerada pela IA (com o Vídeo real)
+        function atualizarLinhaTabelaDOM(rowId, file, postData) {
+            // O HTML será idêntico ao renderizarLinhaSalva, mas injetando o objeto URL do vídeo.
+            const tr = document.getElementById(rowId);
+            const videoUrl = URL.createObjectURL(file);
+            
+            const btnPostadoHtml = `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded text-xs transition-colors shadow-sm">✅ Marcar Postado</button>`;
+
+            tr.innerHTML = `
+                <td class="px-6 py-4 align-top search-target video-container-cell">
+                    <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 shadow-sm border border-slate-200">
+                        <video src="${videoUrl}" class="w-full h-full object-cover" controls></video>
+                    </div>
+                    <h4 class="font-bold text-slate-800 text-sm leading-tight mt-2 produto-nome">${postData.produto}</h4>
+                    <p class="text-[10px] text-slate-400 mt-1 truncate w-32" title="${postData.videoNome}">${postData.videoNome}</p>
+                    <a href="${videoUrl}" download="${postData.videoNome}" class="mt-2 inline-block w-full text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 rounded transition-colors shadow-sm">⬇️ Baixar</a>
+                </td>
+                <td class="px-6 py-4 align-top">
+                    <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl mb-3">
+                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">1. Link Original</label>
+                        <a href="${postData.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block link-original-texto" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${postData.linkOriginal}</a>
+                    </div>
+                    <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
+                        <label class="text-[10px] uppercase font-bold text-orange-700 block mb-1">2. Seu Link Afiliado</label>
+                        <input type="url" placeholder="Cole aqui..." class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded p-2 text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
+                    </div>
+                </td>
+                <td class="px-6 py-4 align-top search-target">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-fuchsia-600 block mb-1">📱 Instagram</label>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${postData.legendaInsta.replace(/"/g, '&quot;')}">${postData.legendaInsta}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-insta')" class="w-full mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Insta</button>
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-orange-600 block mb-1">🛍️ Shopee (Curto)</label>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${postData.legendaShopee.replace(/"/g, '&quot;')}">${postData.legendaShopee}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-shopee')" class="w-full mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Shopee</button>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        ${btnPostadoHtml}
+                        <button onclick="excluirPostagem('${rowId}')" class="bg-red-50 hover:bg-red-100 text-red-500 font-bold py-2 px-3 rounded text-xs transition-colors" title="Excluir Definitivamente">🗑️</button>
+                    </div>
+                </td>
+            `;
+        }
+
+        // Caso a IA falhe
+        function atualizarLinhaErro(rowId, file, errorMessage, linkOriginal) {
+            const tr = document.getElementById(rowId);
+            tr.innerHTML = `
+                <td class="px-6 py-4 align-top"><p class="text-xs font-bold text-slate-700">${file.name}</p></td>
+                <td class="px-6 py-4 align-top"><p class="text-[10px] text-slate-500">${linkOriginal}</p></td>
+                <td class="px-6 py-4 align-top">
+                    <div class="bg-red-50 text-red-700 border border-red-200 p-3 rounded text-[10px] font-mono mb-2 overflow-auto max-h-32">
+                        <strong>Erro da IA:</strong><br/>${errorMessage}
+                    </div>
+                    <button onclick="document.getElementById('${rowId}').remove(); atualizarContadores();" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded text-xs transition-colors">Excluir e tentar de novo</button>
+                </td>
+            `;
+        }
+
+        window.atualizarLegendasDOM = function(rowId, linkInserido) {
+            const tr = document.getElementById(rowId);
+            if(!tr) return;
+            const instaEl = tr.querySelector('.legenda-insta');
+            const shopeeEl = tr.querySelector('.legenda-shopee');
+            
+            const link = linkInserido.trim() === '' ? '[LINK AQUI]' : linkInserido.trim();
+            
+            if(instaEl && instaEl.dataset.original) {
+                instaEl.value = instaEl.dataset.original.replace(/\[LINK AQUI\]/gi, link);
+            }
+            if(shopeeEl && shopeeEl.dataset.original) {
+                shopeeEl.value = shopeeEl.dataset.original.replace(/\[LINK AQUI\]/gi, link);
+            }
+
+            // Atualiza no banco de dados e salva
+            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId);
+            if(postIndex > -1) {
+                bancoDePostagens[postIndex].linkAfiliado = linkInserido.trim();
+                salvarBanco();
+            }
+        };
+
+        window.copiarTexto = function(btn, classeTextarea) {
+            const tr = btn.closest('tr');
+            const textarea = tr.querySelector('.' + classeTextarea);
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            try {
+                navigator.clipboard.writeText(textarea.value);
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Copiado!';
+                btn.classList.add('bg-green-500', 'text-white');
+                btn.classList.remove('bg-fuchsia-100', 'text-fuchsia-700', 'bg-orange-100', 'text-orange-700');
+                mostrarAviso("Legenda copiada para a área de transferência!");
+                
+                setTimeout(() => { 
+                    btn.innerHTML = originalText;
+                    btn.className = originalText.includes('Insta') 
+                        ? "w-full mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-1.5 rounded text-xs transition-colors"
+                        : "w-full mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-1.5 rounded text-xs transition-colors";
+                }, 2000);
+            } catch (err) {
+                mostrarAviso("Erro ao copiar. Tente selecionar o texto manualmente.", "error");
+            }
+        };
+
+        window.excluirPostagem = function(rowId) {
+            const tr = document.getElementById(rowId);
+            if(tr) {
+                tr.style.opacity = '0';
+                setTimeout(() => { 
+                    tr.remove(); 
+                    
+                    // Remove do banco de dados local
+                    bancoDePostagens = bancoDePostagens.filter(p => p.id !== rowId);
+                    salvarBanco();
+                    
+                    mostrarAviso("Postagem excluída definitivamente.", "warning");
+                    atualizarContadores(); 
+                }, 300);
+            }
+        };
+
+        window.alternarPostado = function(rowId) {
+            const tr = document.getElementById(rowId);
+            if(!tr) return;
+            const tbodyPendentes = document.getElementById('tabelaCorpoPendentes');
+            const tbodyPostados = document.getElementById('tabelaCorpoPostados');
+            const btn = tr.querySelector('.btn-postado');
+
+            // Atualiza banco de dados
+            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId);
+            let isAgoraPostado = false;
+
+            tr.style.opacity = '0';
+            setTimeout(() => {
+                if (tr.parentElement === tbodyPendentes) {
+                    tbodyPostados.prepend(tr);
+                    btn.innerHTML = '⏪ Desfazer';
+                    btn.classList.replace('bg-emerald-500', 'bg-slate-400');
+                    btn.classList.replace('hover:bg-emerald-600', 'hover:bg-slate-500');
+                    isAgoraPostado = true;
+                    if(postIndex > -1) bancoDePostagens[postIndex].status = 'postado';
+                    mostrarAviso("Movido para a aba de Postados!", "success");
+                } else {
+                    tbodyPendentes.prepend(tr);
+                    btn.innerHTML = '✅ Marcar Postado';
+                    btn.classList.replace('bg-slate-400', 'bg-emerald-500');
+                    btn.classList.replace('hover:bg-slate-500', 'hover:bg-emerald-600');
+                    if(postIndex > -1) bancoDePostagens[postIndex].status = 'pendente';
+                    mostrarAviso("Retornado para Pendentes.", "warning");
+                }
+                salvarBanco();
+                tr.style.opacity = '1';
+                filtrarTabela(); // Para esconder imediatamente se estiver filtrando
+            }, 300);
+        };
+
+        window.mudarAba = function(aba) {
+            const bodyPendentes = document.getElementById('tabelaCorpoPendentes');
+            const bodyPostados = document.getElementById('tabelaCorpoPostados');
+            const tabPendentes = document.getElementById('tabPendentes');
+            const tabPostados = document.getElementById('tabPostados');
+
+            if (aba === 'pendentes') {
+                bodyPendentes.classList.remove('hidden');
+                bodyPostados.classList.add('hidden');
+                tabPendentes.className = "font-bold text-orange-600 border-b-2 border-orange-600 pb-1 whitespace-nowrap transition-colors text-sm md:text-base";
+                tabPostados.className = "font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent pb-1 whitespace-nowrap transition-colors text-sm md:text-base";
+            } else {
+                bodyPendentes.classList.add('hidden');
+                bodyPostados.classList.remove('hidden');
+                tabPostados.className = "font-bold text-orange-600 border-b-2 border-orange-600 pb-1 whitespace-nowrap transition-colors text-sm md:text-base";
+                tabPendentes.className = "font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent pb-1 whitespace-nowrap transition-colors text-sm md:text-base";
+            }
+            filtrarTabela();
+        };
+
+        window.filtrarTabela = function() {
+            const term = document.getElementById('searchInput').value.toLowerCase();
+            const abaAtivaId = document.getElementById('tabelaCorpoPendentes').classList.contains('hidden') ? 'tabelaCorpoPostados' : 'tabelaCorpoPendentes';
+            const linhas = document.getElementById(abaAtivaId).querySelectorAll('.item-postagem');
+            
+            let visiveis = 0;
+            linhas.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                if(text.includes(term)) {
+                    row.style.display = '';
+                    visiveis++;
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            const emptyState = document.getElementById('emptyState');
+            if(visiveis === 0 && linhas.length > 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.innerHTML = '<p class="text-lg">Nenhum resultado encontrado para a busca.</p>';
+            } else if (linhas.length === 0) {
+                emptyState.classList.remove('hidden');
+                emptyState.innerHTML = '<p class="text-lg">Sua lista está vazia.</p>';
+            } else {
+                emptyState.classList.add('hidden');
+            }
+            
+            atualizarContadores();
+        };
+
+        function atualizarContadores() {
+            const numPendentes = bancoDePostagens.filter(p => p.status === 'pendente').length;
+            const numPostados = bancoDePostagens.filter(p => p.status === 'postado').length;
+            document.getElementById('countPendentes').innerText = numPendentes;
+            document.getElementById('countPostados').innerText = numPostados;
+            
+            const abaAtivaId = document.getElementById('tabelaCorpoPendentes').classList.contains('hidden') ? 'tabelaCorpoPostados' : 'tabelaCorpoPendentes';
+            const linhasAtivas = document.getElementById(abaAtivaId).querySelectorAll('.item-postagem').length;
+            if(linhasAtivas === 0) {
+                document.getElementById('emptyState').classList.remove('hidden');
+            } else {
+                document.getElementById('emptyState').classList.add('hidden');
+            }
+        }
+
+        window.exportarCSV = function() {
+            if(bancoDePostagens.length === 0) {
+                mostrarAviso("Não há dados para exportar.", "error");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "Status,Produto,Link Original,Seu Link Afiliado,Legenda Instagram,Legenda Shopee\n";
+
+            bancoDePostagens.forEach(post => {
+                const isPostado = post.status === 'postado' ? 'Postado' : 'Pendente';
+                const produto = post.produto ? post.produto.replace(/"/g, '""') : '';
+                const linkOriginal = post.linkOriginal ? post.linkOriginal.replace(/"/g, '""') : '';
+                const linkAfiliado = post.linkAfiliado ? post.linkAfiliado.replace(/"/g, '""') : '';
+                
+                let legInsta = post.legendaInsta || '';
+                if(linkAfiliado) legInsta = legInsta.replace(/\[LINK AQUI\]/gi, linkAfiliado);
+                legInsta = legInsta.replace(/"/g, '""');
+
+                let legShopee = post.legendaShopee || '';
+                if(linkAfiliado) legShopee = legShopee.replace(/\[LINK AQUI\]/gi, linkAfiliado);
+                legShopee = legShopee.replace(/"/g, '""');
+
+                const rowCsv = `"${isPostado}","${produto}","${linkOriginal}","${linkAfiliado}","${legInsta}","${legShopee}"`;
+                csvContent += rowCsv + "\n";
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `Painel_Afiliado_Backup_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            mostrarAviso("Arquivo Excel/CSV baixado com sucesso!", "success");
+        };
+    </script>
+</body>
+</html>
