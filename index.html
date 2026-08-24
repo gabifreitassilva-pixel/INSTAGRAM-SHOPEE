@@ -12,6 +12,9 @@
     <meta name="theme-color" content="#f97316">
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Adicionando a biblioteca que lê planilhas Excel nativamente -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
@@ -51,22 +54,31 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <label class="glass-panel rounded-2xl p-6 cursor-pointer block border-2 border-slate-200 hover:border-orange-400 bg-orange-50/10 transition-colors text-center relative overflow-hidden group">
-                <input type="file" id="htmlUpload" accept=".html" class="hidden" />
+                <input type="file" id="htmlUpload" accept=".html" multiple class="hidden" />
                 <h2 class="text-xl font-bold mb-2 text-orange-600">Passo 1: Ler Telegram</h2>
                 <p class="text-sm text-slate-600 mb-4">Envie o arquivo <strong>messages.html</strong> para mapear os links originais.</p>
                 <div class="inline-flex items-center justify-center p-3 rounded-xl bg-orange-100 text-orange-700 font-semibold text-sm w-full shadow-sm border border-orange-200">
-                    <span id="htmlStatus">📁 Clique para selecionar messages.html</span>
+                    <span id="htmlStatus">📁 1. Importar HTML</span>
+                </div>
+            </label>
+
+            <label class="glass-panel rounded-2xl p-6 cursor-pointer block border-2 border-slate-200 hover:border-emerald-400 bg-emerald-50/10 transition-colors text-center relative overflow-hidden group">
+                <input type="file" id="planilhaUpload" accept=".xlsx, .csv" class="hidden" />
+                <h2 class="text-xl font-bold mb-2 text-emerald-600">Passo 2: Planilha</h2>
+                <p class="text-sm text-slate-600 mb-4">Envie a sua planilha <strong>(.xlsx)</strong> com as 2 colunas de links.</p>
+                <div class="inline-flex items-center justify-center p-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm w-full shadow-sm border border-emerald-200">
+                    <span id="planilhaStatus">📊 2. Enviar Planilha</span>
                 </div>
             </label>
 
             <label class="glass-panel rounded-2xl p-6 cursor-pointer block border-2 border-slate-200 hover:border-fuchsia-400 bg-fuchsia-50/10 transition-colors text-center relative overflow-hidden group">
                 <input id="videoUpload" type="file" accept="video/mp4,video/quicktime,video/webm" multiple class="hidden" />
-                <h2 class="text-xl font-bold mb-2 text-fuchsia-700">Passo 2: Analisar Vídeos</h2>
-                <p class="text-sm text-slate-600 mb-4">Selecione os vídeos <strong>(.mp4)</strong> exportados (pode ser vários).</p>
+                <h2 class="text-xl font-bold mb-2 text-fuchsia-700">Passo 3: Analisar</h2>
+                <p class="text-sm text-slate-600 mb-4">Selecione os <strong>vídeos</strong> para Gerar as Legendas.</p>
                 <div class="inline-flex items-center justify-center p-3 rounded-xl bg-fuchsia-100 text-fuchsia-700 font-semibold text-sm w-full shadow-sm border border-fuchsia-200">
-                    <span>🎬 Clique para enviar vídeos e Gerar Posts</span>
+                    <span>🎬 3. Gerar Legendas</span>
                 </div>
             </label>
         </div>
@@ -119,9 +131,8 @@
 
         // Sistema de Banco de Dados Local (LocalStorage)
         let linksDoTelegram = {}; 
-        let bancoDePostagens = []; // Armazena todas as postagens salvas
+        let bancoDePostagens = []; 
 
-        // Função utilitária para exibir alertas bonitos
         function mostrarAviso(mensagem, tipo = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -129,10 +140,8 @@
             toast.innerText = mensagem;
             container.appendChild(toast);
             
-            // Animação de entrada
             setTimeout(() => toast.classList.add('show'), 10);
             
-            // Some após 4 segundos
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
@@ -177,9 +186,9 @@
             }, 3000);
         }
 
-        // Chama o carregamento assim que a página abre
         window.addEventListener('DOMContentLoaded', carregarBanco);
 
+        // PASSO 1: LER TELEGRAM
         document.getElementById('htmlUpload').addEventListener('change', async function(e) {
             const files = e.target.files;
             if (files.length === 0) return;
@@ -192,7 +201,6 @@
                 for(let i = 0; i < files.length; i++) {
                     const file = files[i];
                     
-                    // Lê o arquivo de forma assíncrona para não travar a tela
                     const htmlContent = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
                         reader.onload = event => resolve(event.target.result);
@@ -233,30 +241,84 @@
                         }
                         
                         if (videoName && shopeeLink) {
-                            linksDoTelegram[videoName] = shopeeLink;
+                            let afiliadoLink = '';
+                            const inputAfiliado = msg.querySelector('.afiliado-input');
+                            if (inputAfiliado) {
+                                afiliadoLink = inputAfiliado.getAttribute('value') || inputAfiliado.value || '';
+                            }
+
+                            linksDoTelegram[videoName] = {
+                                original: shopeeLink,
+                                convertido: afiliadoLink.trim()
+                            };
                             linksAdicionadosNestaRodada++;
                         }
                     });
                 }
 
                 if (linksAdicionadosNestaRodada > 0) {
-                    salvarBanco(); // Salva os links novos na memória
-                    
-                    // Conta o total absoluto que tem na memória agora
+                    salvarBanco();
                     const totalNoBanco = Object.keys(linksDoTelegram).length;
                     
-                    statusEl.innerHTML = `✅ ${totalNoBanco} links totais na memória!`;
+                    statusEl.innerHTML = `✅ ${totalNoBanco} totais na memória!`;
                     statusEl.className = "inline-flex items-center justify-center p-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm w-full shadow-sm border border-emerald-200";
-                    mostrarAviso(`+${linksAdicionadosNestaRodada} links novos importados com sucesso! Total agora: ${totalNoBanco}`, "success");
+                    mostrarAviso(`+${linksAdicionadosNestaRodada} links importados. Total: ${totalNoBanco}`, "success");
                 } else {
-                    statusEl.innerHTML = `⚠️ Nenhum link novo achado`;
-                    mostrarAviso("Nenhum link novo da Shopee encontrado nestes arquivos HTML.", "warning");
+                    statusEl.innerHTML = `⚠️ Nenhum link novo`;
+                    mostrarAviso("Nenhum link novo encontrado.", "warning");
                 }
             } catch (error) {
-                mostrarAviso("Erro ao processar os arquivos HTML.", "error");
+                mostrarAviso("Erro ao processar HTML.", "error");
             }
         });
 
+        // PASSO 2: LER PLANILHA (XLSX / CSV)
+        document.getElementById('planilhaUpload').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const statusEl = document.getElementById('planilhaStatus');
+            statusEl.innerHTML = `⏳ Lendo planilha...`;
+
+            try {
+                const data = await file.arrayBuffer();
+                const workbook = XLSX.read(data, {type: 'array'});
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, {header: 1}); 
+
+                let linksMapeados = 0;
+
+                for (let i = 1; i < json.length; i++) { 
+                    const row = json[i];
+                    if (!row || row.length < 2) continue;
+                    
+                    const original = String(row[0]).trim();
+                    const convertido = String(row[1]).trim();
+
+                    if (original && convertido) {
+                        for (const videoName in linksDoTelegram) {
+                            if (linksDoTelegram[videoName].original === original || linksDoTelegram[videoName].original.includes(original)) {
+                                linksDoTelegram[videoName].convertido = convertido;
+                                linksMapeados++;
+                            }
+                        }
+                    }
+                }
+
+                salvarBanco();
+                statusEl.innerHTML = `✅ ${linksMapeados} cruzados!`;
+                statusEl.className = "inline-flex items-center justify-center p-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm w-full shadow-sm border border-emerald-200";
+                mostrarAviso(`${linksMapeados} links da planilha vinculados com sucesso!`, "success");
+
+            } catch (error) {
+                console.error(error);
+                mostrarAviso("Erro ao ler a planilha. Verifique se o arquivo é válido.", "error");
+                statusEl.innerHTML = `⚠️ Erro na leitura`;
+            }
+        });
+
+        // PASSO 3: ANALISAR VÍDEOS
         document.getElementById('videoUpload').addEventListener('change', async function(e) {
             const files = e.target.files;
             if (files.length === 0) return;
@@ -264,6 +326,9 @@
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) {
                 mostrarAviso("Por favor, preencha a chave da API do Gemini.", "error");
+                const inputChave = document.getElementById('apiKey');
+                inputChave.classList.add('border-red-500', 'bg-red-50');
+                setTimeout(() => inputChave.classList.remove('border-red-500', 'bg-red-50'), 4000);
                 return;
             }
 
@@ -272,13 +337,23 @@
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                const originalLink = linksDoTelegram[file.name] || "Link não encontrado no arquivo HTML.";
                 
-                // Verifica se já existe um post com esse nome de vídeo para evitar duplicata (reconecta o vídeo)
+                const storedLinkData = linksDoTelegram[file.name];
+                let originalLink = "Link não encontrado no arquivo HTML.";
+                let linkPreConvertido = "";
+                
+                if (storedLinkData) {
+                    if (typeof storedLinkData === 'string') {
+                        originalLink = storedLinkData;
+                    } else {
+                        originalLink = storedLinkData.original || originalLink;
+                        linkPreConvertido = storedLinkData.convertido || "";
+                    }
+                }
+                
                 const postExistente = bancoDePostagens.find(p => p.videoNome === file.name);
                 if(postExistente) {
-                    mostrarAviso(`Vídeo ${file.name} reconectado aos dados salvos!`, "success");
-                    // Atualiza a visualização com o arquivo real para poder baixar/assistir
+                    mostrarAviso(`Vídeo reconectado aos dados salvos!`, "success");
                     const trExistente = document.getElementById(postExistente.id);
                     if(trExistente) {
                         const tdVideo = trExistente.querySelector('.video-container-cell');
@@ -292,7 +367,7 @@
                             <a href="${videoUrl}" download="${file.name}" class="mt-2 inline-block w-full max-w-[128px] text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 rounded transition-colors shadow-sm">⬇️ Baixar</a>
                         `;
                     }
-                    continue; // Pula a IA porque já temos os dados
+                    continue; 
                 }
 
                 const rowId = 'row-' + Date.now() + '-' + i;
@@ -325,13 +400,12 @@
                     const framesBase64 = await extrairFlipbook(file);
                     const iaData = await analisarImagemGemini(framesBase64, apiKey);
                     
-                    // Cria o objeto para salvar no banco
                     const novoPost = {
                         id: rowId,
                         videoNome: file.name,
                         produto: iaData.produto,
                         linkOriginal: originalLink,
-                        linkAfiliado: "",
+                        linkAfiliado: linkPreConvertido, 
                         legendaInsta: iaData.legenda_instagram,
                         legendaShopee: iaData.legenda_shopee,
                         status: 'pendente'
@@ -342,13 +416,20 @@
                     
                     atualizarLinhaTabelaDOM(rowId, file, novoPost);
                 } catch (error) {
-                    console.error(error);
+                    if (error.message.toLowerCase().includes("api key not valid")) {
+                        mostrarAviso("Chave da API Inválida! Verifique se copiou corretamente.", "error");
+                        const inputChave = document.getElementById('apiKey');
+                        inputChave.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
+                        setTimeout(() => inputChave.classList.remove('border-red-500', 'bg-red-50', 'text-red-700'), 4000);
+                        console.warn("Chave API inválida.");
+                    } else {
+                        console.warn(error);
+                    }
                     atualizarLinhaErro(rowId, file, error.message, originalLink);
                 }
                 
-                // Pausa reduzida para 1.5s (Conta Paga) para não sobrecarregar
                 if (i < files.length - 1) {
-                    await new Promise(r => setTimeout(r, 1500));
+                    await new Promise(r => setTimeout(r, 2000));
                 }
             }
         });
@@ -416,28 +497,57 @@
                 generationConfig: { temperature: 0.7 }
             };
 
+            // Versão 3.6-flash correta
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            let maxRetries = 3;
+            let attempt = 0;
+            let delay = 3000;
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                const errMsg = errorData?.error?.message || response.statusText;
-                throw new Error(errMsg);
+            while (attempt < maxRetries) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        const errMsg = errorData?.error?.message || response.statusText;
+                        
+                        if (response.status === 503 || response.status === 429 || errMsg.toLowerCase().includes('high demand') || errMsg.toLowerCase().includes('quota')) {
+                            throw new Error(errMsg);
+                        } else {
+                            throw new Error("FATAL: " + errMsg);
+                        }
+                    }
+
+                    const data = await response.json();
+                    let textoResposta = data.candidates[0].content.parts[0].text;
+                    textoResposta = textoResposta.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    
+                    return JSON.parse(textoResposta);
+                    
+                } catch (error) {
+                    if (error.message.startsWith("FATAL: ")) {
+                        throw new Error(error.message.replace("FATAL: ", ""));
+                    }
+                    
+                    attempt++;
+                    if (attempt >= maxRetries) {
+                        throw new Error(`A IA do Google está muito cheia no momento. Detalhes: ${error.message}`);
+                    }
+                    
+                    console.warn(`A IA engasgou (Tentativa ${attempt}/${maxRetries}). Tentando de novo em ${delay/1000}s...`);
+                    mostrarAviso(`Google sobrecarregado. Reconectando vídeo (Tentativa ${attempt}/${maxRetries})...`, "warning");
+                    
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2; 
+                }
             }
-
-            const data = await response.json();
-            let textoResposta = data.candidates[0].content.parts[0].text;
-            textoResposta = textoResposta.replace(/```json/gi, '').replace(/```/g, '').trim();
-            
-            return JSON.parse(textoResposta);
         }
 
-        // Reconstrói a linha baseada nos dados do LocalStorage (Sem o arquivo de vídeo)
         function renderizarLinhaSalva(post) {
             const rowId = post.id;
             const tbody = post.status === 'postado' ? document.getElementById('tabelaCorpoPostados') : document.getElementById('tabelaCorpoPendentes');
@@ -446,7 +556,6 @@
             tr.id = rowId;
             tr.className = "item-postagem flex flex-col md:table-row bg-white border border-slate-200 md:border-none rounded-xl md:rounded-none shadow-sm md:shadow-none overflow-hidden transition-colors hover:bg-slate-50 mb-4 md:mb-0";
             
-            // Layout de quando o vídeo não está na memória (foi salvo antes)
             const videoLayout = `
                 <div class="w-32 h-40 bg-slate-100 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center mb-2 p-2 text-center text-slate-400">
                     <span class="text-2xl mb-1">📁</span>
@@ -471,7 +580,10 @@
                         <a href="${post.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block link-original-texto" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${post.linkOriginal}</a>
                     </div>
                     <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
-                        <label class="text-[10px] uppercase font-bold text-orange-700 block mb-1">2. Seu Link Afiliado</label>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] uppercase font-bold text-orange-700 block">2. Seu Link Afiliado</label>
+                            <a href="${post.linkAfiliado || '#'}" target="_blank" class="link-afiliado-btn text-[10px] font-bold text-orange-600 hover:text-orange-800 underline ${post.linkAfiliado ? '' : 'hidden'}">Testar Link ↗</a>
+                        </div>
                         <input type="url" placeholder="Cole aqui..." value="${post.linkAfiliado || ''}" class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
                     </div>
                 </td>
@@ -497,9 +609,7 @@
             tbody.prepend(tr);
         }
 
-        // Renderiza linha nova gerada pela IA (com o Vídeo real)
         function atualizarLinhaTabelaDOM(rowId, file, postData) {
-            // O HTML será idêntico ao renderizarLinhaSalva, mas injetando o objeto URL do vídeo.
             const tr = document.getElementById(rowId);
             const videoUrl = URL.createObjectURL(file);
             
@@ -520,20 +630,23 @@
                         <a href="${postData.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block link-original-texto" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${postData.linkOriginal}</a>
                     </div>
                     <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
-                        <label class="text-[10px] uppercase font-bold text-orange-700 block mb-1">2. Seu Link Afiliado</label>
-                        <input type="url" placeholder="Cole aqui..." class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] uppercase font-bold text-orange-700 block">2. Seu Link Afiliado</label>
+                            <a href="${postData.linkAfiliado || '#'}" target="_blank" class="link-afiliado-btn text-[10px] font-bold text-orange-600 hover:text-orange-800 underline ${postData.linkAfiliado ? '' : 'hidden'}">Testar Link ↗</a>
+                        </div>
+                        <input type="url" placeholder="Cole aqui..." value="${postData.linkAfiliado || ''}" class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
                     </div>
                 </td>
                 <td class="p-4 md:px-6 md:py-4 align-top search-target block md:table-cell">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-3">
                         <div>
                             <label class="text-[10px] uppercase font-bold text-fuchsia-600 block mb-1">📱 Instagram</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${postData.legendaInsta.replace(/"/g, '&quot;')}">${postData.legendaInsta}</textarea>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${postData.legendaInsta.replace(/"/g, '&quot;')}">${postData.linkAfiliado ? postData.legendaInsta.replace(/\[LINK AQUI\]/gi, postData.linkAfiliado) : postData.legendaInsta}</textarea>
                             <button onclick="copiarTexto(this, 'legenda-insta')" class="w-full mt-2 md:mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Insta</button>
                         </div>
                         <div>
                             <label class="text-[10px] uppercase font-bold text-orange-600 block mb-1">🛍️ Shopee (Curto)</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${postData.legendaShopee.replace(/"/g, '&quot;')}">${postData.legendaShopee}</textarea>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${postData.legendaShopee.replace(/"/g, '&quot;')}">${postData.linkAfiliado ? postData.legendaShopee.replace(/\[LINK AQUI\]/gi, postData.linkAfiliado) : postData.legendaShopee}</textarea>
                             <button onclick="copiarTexto(this, 'legenda-shopee')" class="w-full mt-2 md:mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Shopee</button>
                         </div>
                     </div>
@@ -545,7 +658,6 @@
             `;
         }
 
-        // Caso a IA falhe
         function atualizarLinhaErro(rowId, file, errorMessage, linkOriginal) {
             const tr = document.getElementById(rowId);
             tr.innerHTML = `
@@ -560,26 +672,12 @@
             `;
         }
 
-        // Caso a IA falhe
-        function atualizarLinhaErro(rowId, file, errorMessage, linkOriginal) {
-            const tr = document.getElementById(rowId);
-            tr.innerHTML = `
-                <td class="px-6 py-4 align-top"><p class="text-xs font-bold text-slate-700">${file.name}</p></td>
-                <td class="px-6 py-4 align-top"><p class="text-[10px] text-slate-500">${linkOriginal}</p></td>
-                <td class="px-6 py-4 align-top">
-                    <div class="bg-red-50 text-red-700 border border-red-200 p-3 rounded text-[10px] font-mono mb-2 overflow-auto max-h-32">
-                        <strong>Erro da IA:</strong><br/>${errorMessage}
-                    </div>
-                    <button onclick="document.getElementById('${rowId}').remove(); atualizarContadores();" class="bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-2 px-4 rounded text-xs transition-colors">Excluir e tentar de novo</button>
-                </td>
-            `;
-        }
-
         window.atualizarLegendasDOM = function(rowId, linkInserido) {
             const tr = document.getElementById(rowId);
             if(!tr) return;
             const instaEl = tr.querySelector('.legenda-insta');
             const shopeeEl = tr.querySelector('.legenda-shopee');
+            const btnAbrir = tr.querySelector('.link-afiliado-btn');
             
             const link = linkInserido.trim() === '' ? '[LINK AQUI]' : linkInserido.trim();
             
@@ -590,7 +688,16 @@
                 shopeeEl.value = shopeeEl.dataset.original.replace(/\[LINK AQUI\]/gi, link);
             }
 
-            // Atualiza no banco de dados e salva
+            if(btnAbrir) {
+                if (linkInserido.trim() !== '') {
+                    btnAbrir.href = linkInserido.trim();
+                    btnAbrir.classList.remove('hidden');
+                } else {
+                    btnAbrir.href = '#';
+                    btnAbrir.classList.add('hidden');
+                }
+            }
+
             const postIndex = bancoDePostagens.findIndex(p => p.id === rowId);
             if(postIndex > -1) {
                 bancoDePostagens[postIndex].linkAfiliado = linkInserido.trim();
@@ -629,7 +736,6 @@
                 setTimeout(() => { 
                     tr.remove(); 
                     
-                    // Remove do banco de dados local
                     bancoDePostagens = bancoDePostagens.filter(p => p.id !== rowId);
                     salvarBanco();
                     
@@ -646,7 +752,6 @@
             const tbodyPostados = document.getElementById('tabelaCorpoPostados');
             const btn = tr.querySelector('.btn-postado');
 
-            // Atualiza banco de dados
             const postIndex = bancoDePostagens.findIndex(p => p.id === rowId);
             let isAgoraPostado = false;
 
@@ -670,7 +775,7 @@
                 }
                 salvarBanco();
                 tr.style.opacity = '1';
-                filtrarTabela(); // Para esconder imediatamente se estiver filtrando
+                filtrarTabela(); 
             }, 300);
         };
 
