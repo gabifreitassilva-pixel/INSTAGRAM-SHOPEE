@@ -88,17 +88,17 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse min-w-[1100px]">
-                    <thead>
+            <div class="overflow-x-auto md:overflow-visible p-3 md:p-0 bg-slate-100 md:bg-transparent">
+                <table class="w-full text-left border-collapse lg:min-w-[1100px]">
+                    <thead class="hidden md:table-header-group">
                         <tr class="bg-slate-50 text-slate-600 text-xs uppercase tracking-wider border-b border-slate-200">
                             <th class="px-6 py-4 font-bold w-1/5">Vídeo & Produto</th>
                             <th class="px-6 py-4 font-bold w-1/4">Gestão de Links</th>
                             <th class="px-6 py-4 font-bold w-auto">Legendas (Insta & Shopee)</th>
                         </tr>
                     </thead>
-                    <tbody id="tabelaCorpoPendentes" class="divide-y divide-slate-100 bg-white"></tbody>
-                    <tbody id="tabelaCorpoPostados" class="divide-y divide-slate-100 bg-slate-50 hidden"></tbody>
+                    <tbody id="tabelaCorpoPendentes" class="md:divide-y divide-slate-100 bg-transparent md:bg-white flex flex-col md:table-row-group gap-4 md:gap-0"></tbody>
+                    <tbody id="tabelaCorpoPostados" class="md:divide-y divide-slate-100 bg-transparent md:bg-slate-50 hidden flex-col md:table-row-group gap-4 md:gap-0"></tbody>
                 </table>
                 <div id="emptyState" class="p-12 text-center text-slate-400 hidden">
                     <p class="text-lg">Nenhuma postagem encontrada.</p>
@@ -284,12 +284,12 @@
                         const tdVideo = trExistente.querySelector('.video-container-cell');
                         const videoUrl = URL.createObjectURL(file);
                         tdVideo.innerHTML = `
-                            <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 shadow-sm border border-slate-200">
+                            <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 shadow-sm border border-slate-200 flex-shrink-0">
                                 <video src="${videoUrl}" class="w-full h-full object-cover" controls></video>
                             </div>
                             <h4 class="font-bold text-slate-800 text-sm leading-tight mt-2 produto-nome">${postExistente.produto}</h4>
-                            <p class="text-[10px] text-slate-400 mt-1 truncate w-32" title="${file.name}">${file.name}</p>
-                            <a href="${videoUrl}" download="${file.name}" class="mt-2 inline-block w-full text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 rounded transition-colors shadow-sm">⬇️ Baixar</a>
+                            <p class="text-[10px] text-slate-400 mt-1 truncate w-32 md:w-auto" title="${file.name}">${file.name}</p>
+                            <a href="${videoUrl}" download="${file.name}" class="mt-2 inline-block w-full max-w-[128px] text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 rounded transition-colors shadow-sm">⬇️ Baixar</a>
                         `;
                     }
                     continue; // Pula a IA porque já temos os dados
@@ -298,21 +298,21 @@
                 const rowId = 'row-' + Date.now() + '-' + i;
                 const tr = document.createElement('tr');
                 tr.id = rowId;
-                tr.className = "hover:bg-slate-50 transition-colors item-postagem";
+                tr.className = "item-postagem flex flex-col md:table-row bg-white border border-slate-200 md:border-none rounded-xl md:rounded-none shadow-sm md:shadow-none overflow-hidden transition-colors hover:bg-slate-50 mb-4 md:mb-0";
                 
                 tr.innerHTML = `
-                    <td class="px-6 py-4 align-top">
+                    <td class="p-4 md:px-6 md:py-4 align-top flex flex-col items-center md:items-start md:table-cell border-b border-slate-100 md:border-none bg-slate-50/50 md:bg-transparent">
                         <div class="w-32 h-40 bg-slate-200 animate-pulse rounded-lg flex flex-col items-center justify-center mb-2">
                             <div class="spinner border-orange-500 border-t-transparent"></div>
                         </div>
                         <div class="h-3 bg-slate-200 rounded animate-pulse w-3/4"></div>
                     </td>
-                    <td class="px-6 py-4 align-top">
+                    <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none">
                         <div class="h-10 bg-slate-200 rounded animate-pulse mb-3 w-full"></div>
                         <div class="h-12 bg-slate-200 rounded animate-pulse w-full"></div>
                     </td>
-                    <td class="px-6 py-4 align-top">
-                        <div class="grid grid-cols-2 gap-4">
+                    <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div>
                             <div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div>
                         </div>
@@ -444,7 +444,7 @@
             
             const tr = document.createElement('tr');
             tr.id = rowId;
-            tr.className = "hover:bg-slate-50 transition-colors item-postagem";
+            tr.className = "item-postagem flex flex-col md:table-row bg-white border border-slate-200 md:border-none rounded-xl md:rounded-none shadow-sm md:shadow-none overflow-hidden transition-colors hover:bg-slate-50 mb-4 md:mb-0";
             
             // Layout de quando o vídeo não está na memória (foi salvo antes)
             const videoLayout = `
@@ -453,44 +453,44 @@
                     <span class="text-[9px] leading-tight font-semibold">Vídeo Salvo na Memória</span>
                 </div>
                 <h4 class="font-bold text-slate-800 text-sm leading-tight mt-2 produto-nome">${post.produto}</h4>
-                <p class="text-[10px] text-slate-400 mt-1 truncate w-32" title="${post.videoNome}">${post.videoNome}</p>
-                <div class="mt-2 text-[9px] text-orange-500 font-semibold leading-tight text-center">Para ver o vídeo, reenvie o arquivo</div>
+                <p class="text-[10px] text-slate-400 mt-1 truncate w-32 md:w-auto" title="${post.videoNome}">${post.videoNome}</p>
+                <div class="mt-2 text-[9px] text-orange-500 font-semibold leading-tight text-center max-w-[128px]">Para ver o vídeo, reenvie o arquivo</div>
             `;
 
             const btnPostadoHtml = post.status === 'postado' 
-                ? `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-slate-400 hover:bg-slate-500 text-white font-bold py-2 rounded text-xs transition-colors shadow-sm">⏪ Desfazer</button>`
-                : `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded text-xs transition-colors shadow-sm">✅ Marcar Postado</button>`;
+                ? `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-slate-400 hover:bg-slate-500 text-white font-bold py-3 md:py-2 rounded-lg md:rounded text-sm md:text-xs transition-colors shadow-sm">⏪ Desfazer</button>`
+                : `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 md:py-2 rounded-lg md:rounded text-sm md:text-xs transition-colors shadow-sm">✅ Marcar Postado</button>`;
 
             tr.innerHTML = `
-                <td class="px-6 py-4 align-top search-target video-container-cell">
+                <td class="p-4 md:px-6 md:py-4 align-top search-target video-container-cell flex flex-col items-center md:items-start md:table-cell border-b border-slate-100 md:border-none bg-slate-50/50 md:bg-transparent text-center md:text-left">
                     ${videoLayout}
                 </td>
-                <td class="px-6 py-4 align-top">
+                <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none">
                     <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl mb-3">
                         <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">1. Link Original</label>
                         <a href="${post.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block link-original-texto" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${post.linkOriginal}</a>
                     </div>
                     <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
                         <label class="text-[10px] uppercase font-bold text-orange-700 block mb-1">2. Seu Link Afiliado</label>
-                        <input type="url" placeholder="Cole aqui..." value="${post.linkAfiliado || ''}" class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded p-2 text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
+                        <input type="url" placeholder="Cole aqui..." value="${post.linkAfiliado || ''}" class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
                     </div>
                 </td>
-                <td class="px-6 py-4 align-top search-target">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                <td class="p-4 md:px-6 md:py-4 align-top search-target block md:table-cell">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-3">
                         <div>
                             <label class="text-[10px] uppercase font-bold text-fuchsia-600 block mb-1">📱 Instagram</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${post.legendaInsta.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaInsta.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaInsta}</textarea>
-                            <button onclick="copiarTexto(this, 'legenda-insta')" class="w-full mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Insta</button>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${post.legendaInsta.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaInsta.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaInsta}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-insta')" class="w-full mt-2 md:mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Insta</button>
                         </div>
                         <div>
                             <label class="text-[10px] uppercase font-bold text-orange-600 block mb-1">🛍️ Shopee (Curto)</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${post.legendaShopee.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaShopee.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaShopee}</textarea>
-                            <button onclick="copiarTexto(this, 'legenda-shopee')" class="w-full mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Shopee</button>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${post.legendaShopee.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaShopee.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaShopee}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-shopee')" class="w-full mt-2 md:mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Shopee</button>
                         </div>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex gap-3 md:gap-2 mt-2">
                         ${btnPostadoHtml}
-                        <button onclick="excluirPostagem('${rowId}')" class="bg-red-50 hover:bg-red-100 text-red-500 font-bold py-2 px-3 rounded text-xs transition-colors" title="Excluir Definitivamente">🗑️</button>
+                        <button onclick="excluirPostagem('${rowId}')" class="bg-red-50 hover:bg-red-100 text-red-500 font-bold py-3 md:py-2 px-4 md:px-3 rounded-lg md:rounded text-sm md:text-xs transition-colors" title="Excluir Definitivamente">🗑️</button>
                     </div>
                 </td>
             `;
@@ -503,44 +503,59 @@
             const tr = document.getElementById(rowId);
             const videoUrl = URL.createObjectURL(file);
             
-            const btnPostadoHtml = `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded text-xs transition-colors shadow-sm">✅ Marcar Postado</button>`;
+            const btnPostadoHtml = `<button onclick="alternarPostado('${rowId}')" class="btn-postado flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 md:py-2 rounded-lg md:rounded text-sm md:text-xs transition-colors shadow-sm">✅ Marcar Postado</button>`;
 
             tr.innerHTML = `
-                <td class="px-6 py-4 align-top search-target video-container-cell">
-                    <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 shadow-sm border border-slate-200">
+                <td class="p-4 md:px-6 md:py-4 align-top search-target video-container-cell flex flex-col items-center md:items-start md:table-cell border-b border-slate-100 md:border-none bg-slate-50/50 md:bg-transparent text-center md:text-left">
+                    <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 shadow-sm border border-slate-200 flex-shrink-0">
                         <video src="${videoUrl}" class="w-full h-full object-cover" controls></video>
                     </div>
                     <h4 class="font-bold text-slate-800 text-sm leading-tight mt-2 produto-nome">${postData.produto}</h4>
-                    <p class="text-[10px] text-slate-400 mt-1 truncate w-32" title="${postData.videoNome}">${postData.videoNome}</p>
-                    <a href="${videoUrl}" download="${postData.videoNome}" class="mt-2 inline-block w-full text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 rounded transition-colors shadow-sm">⬇️ Baixar</a>
+                    <p class="text-[10px] text-slate-400 mt-1 truncate w-32 md:w-auto" title="${postData.videoNome}">${postData.videoNome}</p>
+                    <a href="${videoUrl}" download="${postData.videoNome}" class="mt-2 inline-block w-full max-w-[128px] text-center text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 py-1.5 rounded transition-colors shadow-sm">⬇️ Baixar</a>
                 </td>
-                <td class="px-6 py-4 align-top">
+                <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none">
                     <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl mb-3">
                         <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">1. Link Original</label>
                         <a href="${postData.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block link-original-texto" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${postData.linkOriginal}</a>
                     </div>
                     <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
                         <label class="text-[10px] uppercase font-bold text-orange-700 block mb-1">2. Seu Link Afiliado</label>
-                        <input type="url" placeholder="Cole aqui..." class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded p-2 text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
+                        <input type="url" placeholder="Cole aqui..." class="link-afiliado-input w-full bg-white border border-orange-200 text-slate-700 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs outline-none focus:border-orange-500 shadow-sm" oninput="atualizarLegendasDOM('${rowId}', this.value)">
                     </div>
                 </td>
-                <td class="px-6 py-4 align-top search-target">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                <td class="p-4 md:px-6 md:py-4 align-top search-target block md:table-cell">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-3">
                         <div>
                             <label class="text-[10px] uppercase font-bold text-fuchsia-600 block mb-1">📱 Instagram</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${postData.legendaInsta.replace(/"/g, '&quot;')}">${postData.legendaInsta}</textarea>
-                            <button onclick="copiarTexto(this, 'legenda-insta')" class="w-full mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Insta</button>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${postData.legendaInsta.replace(/"/g, '&quot;')}">${postData.legendaInsta}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-insta')" class="w-full mt-2 md:mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Insta</button>
                         </div>
                         <div>
                             <label class="text-[10px] uppercase font-bold text-orange-600 block mb-1">🛍️ Shopee (Curto)</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded p-2 text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${postData.legendaShopee.replace(/"/g, '&quot;')}">${postData.legendaShopee}</textarea>
-                            <button onclick="copiarTexto(this, 'legenda-shopee')" class="w-full mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-1.5 rounded text-xs transition-colors">📋 Copiar Shopee</button>
+                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${postData.legendaShopee.replace(/"/g, '&quot;')}">${postData.legendaShopee}</textarea>
+                            <button onclick="copiarTexto(this, 'legenda-shopee')" class="w-full mt-2 md:mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Shopee</button>
                         </div>
                     </div>
-                    <div class="flex gap-2">
+                    <div class="flex gap-3 md:gap-2 mt-2">
                         ${btnPostadoHtml}
-                        <button onclick="excluirPostagem('${rowId}')" class="bg-red-50 hover:bg-red-100 text-red-500 font-bold py-2 px-3 rounded text-xs transition-colors" title="Excluir Definitivamente">🗑️</button>
+                        <button onclick="excluirPostagem('${rowId}')" class="bg-red-50 hover:bg-red-100 text-red-500 font-bold py-3 md:py-2 px-4 md:px-3 rounded-lg md:rounded text-sm md:text-xs transition-colors" title="Excluir Definitivamente">🗑️</button>
                     </div>
+                </td>
+            `;
+        }
+
+        // Caso a IA falhe
+        function atualizarLinhaErro(rowId, file, errorMessage, linkOriginal) {
+            const tr = document.getElementById(rowId);
+            tr.innerHTML = `
+                <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none"><p class="text-xs font-bold text-slate-700">${file.name}</p></td>
+                <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none"><p class="text-[10px] text-slate-500 break-all">${linkOriginal}</p></td>
+                <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell">
+                    <div class="bg-red-50 text-red-700 border border-red-200 p-3 rounded text-[10px] font-mono mb-3 overflow-auto max-h-32">
+                        <strong>Erro da IA:</strong><br/>${errorMessage}
+                    </div>
+                    <button onclick="document.getElementById('${rowId}').remove(); atualizarContadores();" class="w-full md:w-auto bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-3 md:py-2 px-4 rounded-lg md:rounded text-sm md:text-xs transition-colors">Excluir e tentar de novo</button>
                 </td>
             `;
         }
