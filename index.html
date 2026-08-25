@@ -348,11 +348,11 @@
                     continue; 
                 }
 
-                // 🔥 NOVA LÓGICA: MODO TURBO DE VERIFICAÇÃO 🔥
-                // Se o vídeo não tiver link original ou não tiver link convertido, PULA NA HORA!
-                if (!linkPreConvertido || originalLink === "Link não encontrado.") {
-                    mostrarAviso(`⏭️ Pulando ${file.name} (Sem link vinculado)`, "warning");
-                    continue; // Isso faz o código abortar este vídeo e pular direto pro próximo!
+                // 🔥 NOVA LÓGICA: Passo 2 agora é Opcional! 🔥
+                // Pula apenas se NÃO tiver o link original do Telegram (Passo 1)
+                if (originalLink === "Link não encontrado.") {
+                    mostrarAviso(`⏭️ Pulando ${file.name} (Sem link do Telegram)`, "warning");
+                    continue; // Pula direto para o próximo vídeo
                 }
 
                 const rowId = 'row-' + Date.now() + '-' + i;
