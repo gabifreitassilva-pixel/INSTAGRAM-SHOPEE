@@ -1,4 +1,4 @@
-const CACHE_NAME = 'achadinhos-v5'; // Mudei para v5 para forçar a atualização
+const CACHE_NAME = 'achadinhos-v6'; // Mudei para v5 para forçar a atualização
 const assets = [
   './',
   './index.html',
