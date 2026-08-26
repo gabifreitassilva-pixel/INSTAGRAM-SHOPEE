@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Vídeos - Achadinhos 360</title>
     
-    <!-- Conectando o App e o Ícone (Caminhos relativos seguros para o GitHub) -->
+    <!-- Conectando o App e o Ícone -->
     <link rel="manifest" href="./manifest.json">
-    <link rel="icon" href="./icon.png" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="./icon.png">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icon.svg">
     <meta name="theme-color" content="#f97316">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -115,11 +115,24 @@
         </div>
     </div>
 
+    <!-- SCRIPT DO MOTOR PWA (FORÇANDO A INSTALAÇÃO) -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(registration => console.log('Motor do App ativado!', registration.scope))
+                        .catch(error => console.error('Erro no App:', error));
+                }
+            });
+        }
+    </script>
+
+    <!-- SISTEMA DA APLICAÇÃO -->
     <script>
         let bancoDePostagens = [];
         let linksDoTelegram = JSON.parse(localStorage.getItem('achadinhos_links') || '{}'); 
 
-        // Sistema de Avisos
         function mostrarAviso(mensagem, tipo = 'success') {
             const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
@@ -127,16 +140,12 @@
             toast.innerText = mensagem;
             container.appendChild(toast);
             setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => {
-                toast.classList.remove('show');
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, 4000);
         }
 
         document.getElementById('htmlUpload').addEventListener('change', async function(e) {
             const files = e.target.files;
             if (files.length === 0) return;
-
             let linksAdicionadosNestaRodada = 0;
             const statusEl = document.getElementById('htmlStatus');
             statusEl.innerHTML = `⏳ Lendo arquivo...`;
@@ -147,7 +156,6 @@
                     const htmlContent = await new Promise((resolve, reject) => {
                         const reader = new FileReader();
                         reader.onload = event => resolve(event.target.result);
-                        reader.onerror = error => reject(error);
                         reader.readAsText(file);
                     });
 
@@ -187,7 +195,6 @@
                             let afiliadoLink = '';
                             const inputAfiliado = msg.querySelector('.afiliado-input');
                             if (inputAfiliado) afiliadoLink = inputAfiliado.getAttribute('value') || inputAfiliado.value || '';
-
                             linksDoTelegram[videoName] = { original: shopeeLink, convertido: afiliadoLink.trim() };
                             linksAdicionadosNestaRodada++;
                         }
@@ -202,19 +209,13 @@
                 } else {
                     statusEl.innerHTML = `⚠️ Nenhum link achado`;
                 }
-            } catch (error) {
-                mostrarAviso("Erro ao processar HTML.", "error");
-            }
+            } catch (error) { mostrarAviso("Erro ao processar HTML.", "error"); }
         });
 
         function normalizarLink(link) {
             if (!link) return '';
             let limpo = String(link).trim().replace(/[\u200B-\u200D\uFEFF\r\n]/g, '');
-            limpo = limpo.replace(/^https?:\/\//i, '');
-            limpo = limpo.replace(/^www\./i, '');
-            limpo = limpo.replace(/^s\./i, ''); 
-            limpo = limpo.split('?')[0];
-            limpo = limpo.replace(/\/$/, '');
+            limpo = limpo.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/^s\./i, '').split('?')[0].replace(/\/$/, '');
             return limpo;
         }
 
@@ -233,7 +234,6 @@
 
             try {
                 let json = [];
-                
                 if (file.name.toLowerCase().endsWith('.csv')) {
                     const texto = await file.text();
                     const linhas = texto.split(/\r?\n/);
@@ -252,14 +252,12 @@
                 }
 
                 let linksMapeados = 0;
-
                 for (let i = 0; i < json.length; i++) { 
                     const row = json[i];
                     if (!row || row.length < 2) continue;
                     
                     const original = String(row[0]).trim();
                     const convertido = String(row[1]).trim();
-                    
                     if (original.toLowerCase().includes('original') || !original.includes('http')) continue;
 
                     if (original && convertido) {
@@ -271,12 +269,10 @@
                             const memoriaLimpa = normalizarLink(linkMemoria);
                             const idMemoria = extrairIdShopee(memoriaLimpa);
 
-                            if (
-                                (memoriaLimpa === originalLimpo && memoriaLimpa.length > 0) || 
+                            if ((memoriaLimpa === originalLimpo && memoriaLimpa.length > 0) || 
                                 (idMemoria === idOriginal && idMemoria.length > 5) ||
                                 (memoriaLimpa.includes(originalLimpo) && originalLimpo.length > 15) ||
-                                (originalLimpo.includes(memoriaLimpa) && memoriaLimpa.length > 15)
-                            ) {
+                                (originalLimpo.includes(memoriaLimpa) && memoriaLimpa.length > 15)) {
                                 linksDoTelegram[videoName].convertido = convertido; 
                                 linksMapeados++;
                             }
@@ -285,15 +281,10 @@
                 }
 
                 localStorage.setItem('achadinhos_links', JSON.stringify(linksDoTelegram));
-                statusEl.innerHTML = `✅ ${linksMapeados} links vinculados!`;
+                statusEl.innerHTML = `✅ ${linksMapeados} vinculados!`;
                 statusEl.className = "inline-flex items-center justify-center p-3 rounded-xl bg-emerald-100 text-emerald-700 font-semibold text-sm w-full shadow-sm border border-emerald-200";
-                mostrarAviso(`${linksMapeados} links da planilha cruzados com sucesso!`, "success");
-
-            } catch (error) {
-                console.error(error);
-                mostrarAviso("Erro ao ler a planilha.", "error");
-                statusEl.innerHTML = `⚠️ Erro na leitura`;
-            }
+                mostrarAviso(`${linksMapeados} links vinculados com sucesso!`, "success");
+            } catch (error) { mostrarAviso("Erro ao ler a planilha.", "error"); statusEl.innerHTML = `⚠️ Erro na leitura`; }
         });
 
         document.getElementById('videoUpload').addEventListener('change', async function(e) {
@@ -302,10 +293,7 @@
 
             const apiKey = document.getElementById('apiKey').value.trim();
             if (!apiKey) {
-                const inputChave = document.getElementById('apiKey');
-                inputChave.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
-                setTimeout(() => inputChave.classList.remove('border-red-500', 'bg-red-50', 'text-red-700'), 4000);
-                mostrarAviso("Preencha a chave da API do Gemini.", "error");
+                mostrarAviso("Cole a chave da API do Gemini lá no topo primeiro.", "error");
                 return;
             }
 
@@ -329,15 +317,8 @@
                         linkPreConvertido = typeof storedLinkData === 'object' ? (storedLinkData.convertido || "") : "";
                     }
                     
-                    if(bancoDePostagens.find(p => p.videoNome === file.name)) {
-                        return; 
-                    }
-
-                    // A Trava: Só pula o vídeo se NÃO achar o link original (Passo 1). Se tiver no passo 1 e não no 2, ele passa.
-                    if (originalLink === "Link não encontrado.") {
-                        console.log(`Pulando ${file.name} - Sem link original`);
-                        return;
-                    }
+                    if(bancoDePostagens.find(p => p.videoNome === file.name)) return; 
+                    if (originalLink === "Link não encontrado.") return;
 
                     const rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
                     const tr = document.createElement('tr');
@@ -345,19 +326,9 @@
                     tr.className = "item-postagem skeleton-row flex flex-col md:table-row bg-white border border-slate-200 md:border-none rounded-xl md:rounded-none shadow-sm md:shadow-none overflow-hidden mb-4 md:mb-0";
                     
                     tr.innerHTML = `
-                        <td class="p-4 md:px-6 md:py-4 align-top flex flex-col items-center md:items-start md:table-cell border-b border-slate-100 md:border-none">
-                            <div class="w-32 h-40 bg-slate-200 animate-pulse rounded-lg flex flex-col items-center justify-center mb-2">
-                                <div class="spinner border-orange-500 border-t-transparent"></div>
-                                <span class="text-[9px] text-slate-500 font-bold mt-2">Processando IA...</span>
-                            </div>
-                        </td>
-                        <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none">
-                            <div class="h-10 bg-slate-200 rounded animate-pulse mb-3 w-full"></div>
-                            <div class="h-12 bg-slate-200 rounded animate-pulse w-full"></div>
-                        </td>
-                        <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div><div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div></div>
-                        </td>
+                        <td class="p-4 md:px-6 md:py-4 align-top border-b border-slate-100 md:border-none"><div class="w-32 h-40 bg-slate-200 animate-pulse rounded-lg flex items-center justify-center mb-2"><div class="spinner"></div></div></td>
+                        <td class="p-4 md:px-6 md:py-4 align-top border-b border-slate-100 md:border-none"><div class="h-10 bg-slate-200 rounded animate-pulse mb-3 w-full"></div></td>
+                        <td class="p-4 md:px-6 md:py-4 align-top"><div class="grid grid-cols-2 gap-4"><div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div></div></td>
                     `;
                     tbody.prepend(tr);
 
@@ -367,23 +338,13 @@
                         const videoUrlLocal = URL.createObjectURL(file);
                         
                         const novoPost = {
-                            id: rowId,
-                            videoNome: file.name,
-                            videoUrl: videoUrlLocal,
-                            produto: iaData.produto,
-                            linkOriginal: originalLink,
-                            linkAfiliado: linkPreConvertido, 
-                            legendaInsta: iaData.legenda_instagram,
-                            legendaShopee: iaData.legenda_shopee,
-                            status: 'pendente'
+                            id: rowId, videoNome: file.name, videoUrl: videoUrlLocal, produto: iaData.produto, linkOriginal: originalLink,
+                            linkAfiliado: linkPreConvertido, legendaInsta: iaData.legenda_instagram, legendaShopee: iaData.legenda_shopee, status: 'pendente'
                         };
                         
                         bancoDePostagens.push(novoPost);
                         renderizarPostDOM(novoPost, true);
-                        
-                    } catch (error) {
-                        atualizarLinhaErro(rowId, file, error.message, originalLink);
-                    }
+                    } catch (error) { atualizarLinhaErro(rowId, file, error.message, originalLink); }
                 }));
                 
                 atualizarContadores();
@@ -397,7 +358,7 @@
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 const frames = [];
-                const maxFrames = 4; // Menos imagens, mais rapidez
+                const maxFrames = 4;
 
                 video.muted = true; video.playsInline = true; video.preload = 'auto';
                 video.src = URL.createObjectURL(file);
@@ -413,18 +374,14 @@
                             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
                             const base64Data = canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
                             frames.push({ inlineData: { data: base64Data, mimeType: "image/jpeg" } });
-
                             currentFrame++;
                             if (currentFrame <= maxFrames) video.currentTime = interval * currentFrame - (interval / 2);
-                            else {
-                                URL.revokeObjectURL(video.src); 
-                                resolve(frames);
-                            }
-                        } catch (e) { reject(new Error("Bloqueio de extração.")); }
+                            else { URL.revokeObjectURL(video.src); resolve(frames); }
+                        } catch (e) { reject(new Error("Erro de extração.")); }
                     };
                     video.currentTime = interval / 2; 
                 };
-                video.onerror = () => reject(new Error("Formato não suportado."));
+                video.onerror = () => reject(new Error("Erro de vídeo."));
                 video.load();
             });
         }
@@ -432,172 +389,109 @@
         async function analisarImagemGemini(framesArray, apiKey) {
             const prompt = `Copywriter de Afiliados. Retorne um JSON válido com chaves: "produto", "legenda_instagram" (emojis e 5 hashtags ex: #shopee) e "legenda_shopee" (max 140 chars e 2 hashtags). Sempre coloque o link como [LINK AQUI].`;
             const payload = { contents: [{ parts: [{ text: prompt }, ...framesArray] }], generationConfig: { temperature: 0.7 } };
-            
-            // Usando o modelo mais atualizado e rápido
             const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
-            let attempt = 0; let delay = 200; // Pausa mínima de 0.2 segundos (apenas para não travar o navegador)
-            let maxRetries = 3;
-            while (attempt < maxRetries) {
+            let attempt = 0; let delay = 1000;
+            while (attempt < 3) {
                 try {
                     const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        const errMsg = errorData?.error?.message || response.statusText;
-                        throw new Error(errMsg);
-                    }
+                    if (!response.ok) throw new Error("Erro na API.");
                     const data = await response.json();
                     return JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim());
-                } catch (error) {
-                    attempt++;
-                    if (attempt >= maxRetries) throw new Error(error.message);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                }
+                } catch (error) { attempt++; await new Promise(r => setTimeout(r, delay)); delay *= 2; if(attempt>=3) throw error; }
             }
         }
 
         function renderizarPostDOM(post, isUpdate = false) {
             const tbody = post.status === 'postado' ? document.getElementById('tabelaCorpoPostados') : document.getElementById('tabelaCorpoPendentes');
-            
             let tr;
-            if (isUpdate) {
-                tr = document.getElementById(post.id);
-                if(tr) tr.classList.remove('skeleton-row');
-                if(tr && tr.parentNode !== tbody) tbody.prepend(tr);
-            } 
-            
-            if (!tr) {
-                tr = document.createElement('tr');
-                tr.id = post.id;
-                tbody.prepend(tr);
-            }
+            if (isUpdate) { tr = document.getElementById(post.id); if(tr) tr.classList.remove('skeleton-row'); if(tr && tr.parentNode !== tbody) tbody.prepend(tr); } 
+            if (!tr) { tr = document.createElement('tr'); tr.id = post.id; tbody.prepend(tr); }
             
             tr.className = "item-postagem flex flex-col md:table-row bg-white border border-slate-200 md:border-none rounded-xl md:rounded-none shadow-sm md:shadow-none overflow-hidden transition-colors hover:bg-slate-50 mb-4 md:mb-0";
             
             const btnPostadoHtml = post.status === 'postado' 
-                ? `<button onclick="window.alternarPostado('${post.id}')" class="btn-postado flex-1 bg-slate-400 hover:bg-slate-500 text-white font-bold py-3 md:py-2 rounded-lg md:rounded text-sm md:text-xs transition-colors shadow-sm">⏪ Desfazer</button>`
-                : `<button onclick="window.alternarPostado('${post.id}')" class="btn-postado flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 md:py-2 rounded-lg md:rounded text-sm md:text-xs transition-colors shadow-sm">✅ Marcar Postado</button>`;
+                ? `<button onclick="window.alternarPostado('${post.id}')" class="flex-1 bg-slate-400 hover:bg-slate-500 text-white font-bold py-2 rounded text-xs">⏪ Desfazer</button>`
+                : `<button onclick="window.alternarPostado('${post.id}')" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2 rounded text-xs">✅ Marcar Postado</button>`;
 
             tr.innerHTML = `
-                <td class="p-4 md:px-6 md:py-4 align-top search-target video-container-cell flex flex-col items-center md:items-start md:table-cell border-b border-slate-100 md:border-none bg-slate-50/50 md:bg-transparent text-center md:text-left">
-                    <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 shadow-sm border border-slate-200 flex-shrink-0">
+                <td class="p-4 md:px-6 md:py-4 align-top border-b border-slate-100 md:border-none">
+                    <div class="w-32 h-40 bg-black rounded-lg overflow-hidden relative mb-2 flex-shrink-0">
                         <video src="${post.videoUrl}" class="w-full h-full object-cover" controls preload="metadata"></video>
                     </div>
-                    <h4 class="font-bold text-slate-800 text-sm leading-tight mt-2 produto-nome">${post.produto}</h4>
-                    <p class="text-[10px] text-slate-400 mt-1 truncate w-32 md:w-auto" title="${post.videoNome}">${post.videoNome}</p>
+                    <h4 class="font-bold text-slate-800 text-sm mt-2">${post.produto}</h4>
+                    <p class="text-[10px] text-slate-400 truncate w-32" title="${post.videoNome}">${post.videoNome}</p>
                 </td>
-                <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none">
+                <td class="p-4 md:px-6 md:py-4 align-top border-b border-slate-100 md:border-none">
                     <div class="bg-slate-50 border border-slate-200 p-3 rounded-xl mb-3">
-                        <label class="text-[10px] uppercase font-bold text-slate-500 block mb-1">1. Link Original</label>
-                        <a href="${post.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${post.linkOriginal}</a>
+                        <label class="text-[10px] font-bold text-slate-500 block mb-1">1. ORIGINAL</label>
+                        <a href="${post.linkOriginal}" target="_blank" class="text-xs text-blue-600 hover:underline break-all block truncate">${post.linkOriginal}</a>
                     </div>
                     <div class="bg-orange-50 border border-orange-200 p-3 rounded-xl">
-                        <div class="flex justify-between items-center mb-1">
-                            <label class="text-[10px] uppercase font-bold text-orange-700 block">2. Seu Link Afiliado</label>
-                            <a href="${post.linkAfiliado || '#'}" target="_blank" class="link-afiliado-btn text-[10px] font-bold text-orange-600 hover:text-orange-800 underline ${post.linkAfiliado ? '' : 'hidden'}">Testar ↗</a>
-                        </div>
-                        <input type="url" placeholder="Cole aqui..." value="${post.linkAfiliado || ''}" class="w-full bg-white border border-orange-200 text-slate-700 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs outline-none focus:border-orange-500 shadow-sm" oninput="window.atualizarLegendasDOM('${post.id}', this.value)">
+                        <label class="text-[10px] font-bold text-orange-700 block mb-1">2. AFILIADO</label>
+                        <input type="url" placeholder="Cole aqui..." value="${post.linkAfiliado || ''}" class="w-full border border-orange-200 rounded p-2 text-xs outline-none focus:border-orange-500" oninput="window.atualizarLegendasDOM('${post.id}', this.value)">
                     </div>
                 </td>
-                <td class="p-4 md:px-6 md:py-4 align-top search-target block md:table-cell">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 md:mb-3">
+                <td class="p-4 md:px-6 md:py-4 align-top">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                         <div>
-                            <label class="text-[10px] uppercase font-bold text-fuchsia-600 block mb-1">📱 Instagram</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-insta" readonly data-original="${post.legendaInsta.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaInsta.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaInsta}</textarea>
-                            <button onclick="window.copiarTexto(this, 'legenda-insta')" class="w-full mt-2 md:mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Insta</button>
+                            <label class="text-[10px] font-bold text-fuchsia-600 block mb-1">INSTA</label>
+                            <textarea class="w-full h-24 bg-slate-50 border border-slate-200 rounded p-2 text-xs legenda-insta" readonly data-original="${post.legendaInsta.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaInsta.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaInsta}</textarea>
+                            <button onclick="window.copiarTexto(this, 'legenda-insta')" class="w-full mt-1 bg-fuchsia-100 text-fuchsia-700 font-bold py-1.5 rounded text-xs">Copiar Insta</button>
                         </div>
                         <div>
-                            <label class="text-[10px] uppercase font-bold text-orange-600 block mb-1">🛍️ Shopee</label>
-                            <textarea class="w-full h-32 bg-slate-50 border border-slate-200 rounded-lg md:rounded p-3 md:p-2 text-sm md:text-xs text-slate-700 resize-none outline-none legenda-shopee" readonly data-original="${post.legendaShopee.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaShopee.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaShopee}</textarea>
-                            <button onclick="window.copiarTexto(this, 'legenda-shopee')" class="w-full mt-2 md:mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-2 md:py-1.5 rounded-lg md:rounded text-sm md:text-xs transition-colors">📋 Copiar Shopee</button>
+                            <label class="text-[10px] font-bold text-orange-600 block mb-1">SHOPEE</label>
+                            <textarea class="w-full h-24 bg-slate-50 border border-slate-200 rounded p-2 text-xs legenda-shopee" readonly data-original="${post.legendaShopee.replace(/"/g, '&quot;')}">${post.linkAfiliado ? post.legendaShopee.replace(/\[LINK AQUI\]/gi, post.linkAfiliado) : post.legendaShopee}</textarea>
+                            <button onclick="window.copiarTexto(this, 'legenda-shopee')" class="w-full mt-1 bg-orange-100 text-orange-700 font-bold py-1.5 rounded text-xs">Copiar Shopee</button>
                         </div>
                     </div>
-                    <div class="flex gap-3 md:gap-2 mt-2">
-                        ${btnPostadoHtml}
-                        <button onclick="window.excluirPostagem('${post.id}')" class="bg-red-50 hover:bg-red-100 text-red-500 font-bold py-3 md:py-2 px-4 md:px-3 rounded-lg md:rounded text-sm md:text-xs transition-colors" title="Apagar da Memória">🗑️</button>
-                    </div>
+                    <div class="flex gap-2">${btnPostadoHtml}<button onclick="window.excluirPostagem('${post.id}')" class="bg-red-50 text-red-500 font-bold py-2 px-3 rounded text-xs">🗑️</button></div>
                 </td>
             `;
         }
 
         function atualizarLinhaErro(rowId, file, errorMessage, linkOriginal) {
-            const tr = document.getElementById(rowId);
-            if(!tr) return;
-            tr.classList.remove('skeleton-row');
-            tr.innerHTML = `
-                <td class="p-4"><p class="text-xs font-bold text-slate-700">${file.name}</p></td>
-                <td class="p-4"><p class="text-[10px] text-slate-500 break-all">${linkOriginal}</p></td>
-                <td class="p-4">
-                    <div class="bg-red-50 text-red-700 border border-red-200 p-3 rounded text-[10px] font-mono mb-3"><strong>Erro:</strong><br/>${errorMessage}</div>
-                    <button onclick="document.getElementById('${rowId}').remove(); window.filtrarTabela();" class="bg-slate-200 text-slate-700 font-bold py-2 px-4 rounded text-xs">Descartar</button>
-                </td>
-            `;
+            const tr = document.getElementById(rowId); if(!tr) return;
+            tr.innerHTML = `<td class="p-4" colspan="3"><div class="bg-red-50 text-red-700 p-3 text-xs">Erro em ${file.name}: ${errorMessage} <button onclick="this.closest('tr').remove();" class="ml-4 font-bold">OK</button></div></td>`;
         }
 
         window.atualizarLegendasDOM = function(rowId, linkInserido) {
             const tr = document.getElementById(rowId);
-            const instaEl = tr.querySelector('.legenda-insta');
-            const shopeeEl = tr.querySelector('.legenda-shopee');
-            const btnAbrir = tr.querySelector('.link-afiliado-btn');
             const link = linkInserido.trim() === '' ? '[LINK AQUI]' : linkInserido.trim();
-            
-            if(instaEl) instaEl.value = instaEl.dataset.original.replace(/\[LINK AQUI\]/gi, link);
-            if(shopeeEl) shopeeEl.value = shopeeEl.dataset.original.replace(/\[LINK AQUI\]/gi, link);
-            if(btnAbrir) { btnAbrir.href = linkInserido.trim() || '#'; btnAbrir.classList.toggle('hidden', linkInserido.trim() === ''); }
-
-            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId);
-            if(postIndex !== -1) bancoDePostagens[postIndex].linkAfiliado = linkInserido.trim();
+            const instaEl = tr.querySelector('.legenda-insta'); if(instaEl) instaEl.value = instaEl.dataset.original.replace(/\[LINK AQUI\]/gi, link);
+            const shopeeEl = tr.querySelector('.legenda-shopee'); if(shopeeEl) shopeeEl.value = shopeeEl.dataset.original.replace(/\[LINK AQUI\]/gi, link);
+            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId); if(postIndex !== -1) bancoDePostagens[postIndex].linkAfiliado = linkInserido.trim();
         };
 
         window.alternarPostado = function(rowId) {
-            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId);
-            if(postIndex === -1) return;
-            
-            const novoStatus = bancoDePostagens[postIndex].status === 'pendente' ? 'postado' : 'pendente';
-            bancoDePostagens[postIndex].status = novoStatus;
-            
-            renderizarPostDOM(bancoDePostagens[postIndex], true);
-            atualizarContadores();
-            window.filtrarTabela();
-            mostrarAviso(novoStatus === 'postado' ? "Movido para aba Postados!" : "Retornado para Pendentes");
+            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId); if(postIndex === -1) return;
+            bancoDePostagens[postIndex].status = bancoDePostagens[postIndex].status === 'pendente' ? 'postado' : 'pendente';
+            renderizarPostDOM(bancoDePostagens[postIndex], true); atualizarContadores(); window.filtrarTabela();
         };
 
         window.excluirPostagem = function(rowId) {
-            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId);
-            if(postIndex === -1) return;
-            
-            const post = bancoDePostagens[postIndex];
-            URL.revokeObjectURL(post.videoUrl);
+            const postIndex = bancoDePostagens.findIndex(p => p.id === rowId); if(postIndex === -1) return;
+            URL.revokeObjectURL(bancoDePostagens[postIndex].videoUrl);
             bancoDePostagens.splice(postIndex, 1);
-            
-            const tr = document.getElementById(rowId);
-            if(tr) tr.remove();
-            
-            atualizarContadores();
-            window.filtrarTabela();
-            mostrarAviso("Excluído da memória.", "warning");
+            const tr = document.getElementById(rowId); if(tr) tr.remove();
+            atualizarContadores(); window.filtrarTabela();
         };
 
         window.copiarTexto = function(btn, classe) {
             const tr = btn.closest('tr');
             const textarea = tr.querySelector('.' + classe);
-            textarea.select(); textarea.setSelectionRange(0, 99999);
-            navigator.clipboard.writeText(textarea.value);
+            textarea.select(); navigator.clipboard.writeText(textarea.value);
             const ori = btn.innerHTML; btn.innerHTML = '✅ Copiado!';
-            btn.classList.add('bg-green-500', 'text-white'); btn.classList.remove('bg-fuchsia-100', 'text-fuchsia-700', 'bg-orange-100', 'text-orange-700');
-            setTimeout(() => { btn.innerHTML = ori; btn.className = ori.includes('Insta') ? "w-full mt-1 bg-fuchsia-100 hover:bg-fuchsia-200 text-fuchsia-700 font-bold py-1.5 rounded text-xs transition-colors" : "w-full mt-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold py-1.5 rounded text-xs transition-colors"; }, 2000);
+            setTimeout(() => { btn.innerHTML = ori; }, 2000);
         };
 
         window.mudarAba = function(aba) {
-            const bodyP = document.getElementById('tabelaCorpoPendentes'); const bodyPo = document.getElementById('tabelaCorpoPostados');
-            const tabP = document.getElementById('tabPendentes'); const tabPo = document.getElementById('tabPostados');
-            if (aba === 'pendentes') {
-                bodyP.classList.remove('hidden'); bodyPo.classList.add('hidden');
-                tabP.className = "font-bold text-orange-600 border-b-2 border-orange-600 pb-1 whitespace-nowrap transition-colors text-sm md:text-base"; tabPo.className = "font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent pb-1 whitespace-nowrap transition-colors text-sm md:text-base";
-            } else {
-                bodyP.classList.add('hidden'); bodyPo.classList.remove('hidden');
-                tabPo.className = "font-bold text-orange-600 border-b-2 border-orange-600 pb-1 whitespace-nowrap transition-colors text-sm md:text-base"; tabP.className = "font-bold text-slate-400 hover:text-slate-600 border-b-2 border-transparent pb-1 whitespace-nowrap transition-colors text-sm md:text-base";
-            }
+            document.getElementById('tabelaCorpoPendentes').classList.toggle('hidden', aba !== 'pendentes');
+            document.getElementById('tabelaCorpoPostados').classList.toggle('hidden', aba === 'postados');
+            document.getElementById('tabPendentes').classList.toggle('text-slate-400', aba !== 'pendentes');
+            document.getElementById('tabPendentes').classList.toggle('text-orange-600', aba === 'pendentes');
+            document.getElementById('tabPostados').classList.toggle('text-slate-400', aba !== 'postados');
+            document.getElementById('tabPostados').classList.toggle('text-orange-600', aba === 'postados');
             window.filtrarTabela();
         };
 
@@ -607,46 +501,22 @@
             const linhas = document.getElementById(id).querySelectorAll('.item-postagem');
             let vis = 0;
             linhas.forEach(row => { if(row.innerText.toLowerCase().includes(term)) { row.style.display = ''; vis++; } else { row.style.display = 'none'; } });
-            document.getElementById('emptyState').classList.toggle('hidden', vis > 0 || document.getElementById(id).querySelector('.skeleton-row'));
+            document.getElementById('emptyState').classList.toggle('hidden', vis > 0);
         };
 
         function atualizarContadores() {
             document.getElementById('countPendentes').innerText = bancoDePostagens.filter(p => p.status === 'pendente').length;
             document.getElementById('countPostados').innerText = bancoDePostagens.filter(p => p.status === 'postado').length;
-            window.filtrarTabela(); 
+            window.filtrarTabela();
         }
 
         window.exportarCSV = function() {
-            if(bancoDePostagens.length === 0) { mostrarAviso("Nada para exportar.", "error"); return; }
-            let csv = "data:text/csv;charset=utf-8,\uFEFFStatus,Produto,Link Original,Seu Link Afiliado,Legenda Instagram,Legenda Shopee\n";
-            bancoDePostagens.forEach(p => {
-                let li = p.legendaInsta || ''; if(p.linkAfiliado) li = li.replace(/\[LINK AQUI\]/gi, p.linkAfiliado);
-                let ls = p.legendaShopee || ''; if(p.linkAfiliado) ls = ls.replace(/\[LINK AQUI\]/gi, p.linkAfiliado);
-                csv += `"${p.status === 'postado'?'Postado':'Pendente'}","${(p.produto||'').replace(/"/g,'""')}","${p.linkOriginal}","${p.linkAfiliado}","${li.replace(/"/g,'""')}","${ls.replace(/"/g,'""')}"\n`;
-            });
-            const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv)); link.setAttribute("download", `Backup_Afiliados_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`);
+            if(bancoDePostagens.length === 0) return mostrarAviso("Nada para exportar.");
+            let csv = "data:text/csv;charset=utf-8,\uFEFFStatus,Produto,Link Original,Link Afiliado\n";
+            bancoDePostagens.forEach(p => { csv += `"${p.status}","${(p.produto||'').replace(/"/g,'""')}","${p.linkOriginal}","${p.linkAfiliado}"\n`; });
+            const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv)); link.setAttribute("download", `Backup.csv`);
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
         };
-    </script>
-    
-    <!-- REGISTRO DO MOTOR DO APLICATIVO COM LOG DE SEGURANÇA -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                // Trava inteligente: Só tenta instalar se for um site de verdade (http ou https)
-                if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-                    navigator.serviceWorker.register('./sw.js')
-                        .then(registration => {
-                            console.log('App instalado com sucesso! Escopo:', registration.scope);
-                        })
-                        .catch(error => {
-                            console.error('Falha ao instalar o motor do App:', error);
-                        });
-                } else {
-                    console.log('Ambiente de Preview detectado: Instalação do App (PWA) pausada para evitar erros. Funcionará normalmente no GitHub!');
-                }
-            });
-        }
     </script>
 </body>
 </html>
