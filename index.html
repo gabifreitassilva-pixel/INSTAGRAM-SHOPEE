@@ -332,86 +332,87 @@
             const tbody = document.getElementById('tabelaCorpoPendentes');
             document.getElementById('emptyState').classList.add('hidden');
 
-            for (let i = 0; i < files.length; i++) {
-                const file = files[i];
-                const storedLinkData = linksDoTelegram[file.name];
-                let originalLink = "Link não encontrado.";
-                let linkPreConvertido = "";
-                
-                if (storedLinkData) {
-                    originalLink = typeof storedLinkData === 'string' ? storedLinkData : (storedLinkData.original || originalLink);
-                    linkPreConvertido = typeof storedLinkData === 'object' ? (storedLinkData.convertido || "") : "";
-                }
-                
-                if(bancoDePostagens.find(p => p.videoNome === file.name)) {
-                    mostrarAviso(`Vídeo ${file.name} já processado na sessão atual.`, "warning");
-                    continue; 
-                }
+            // 🔥 MÁXIMA VELOCIDADE: PROCESSAMENTO PARALELO (Lotes de 10) 🔥
+            const tamanhoDoLote = 10;
+            const arrayDeArquivos = Array.from(files);
 
-                // 🔥 NOVA LÓGICA: Passo 2 agora é Opcional! 🔥
-                // Pula apenas se NÃO tiver o link original do Telegram (Passo 1)
-                if (originalLink === "Link não encontrado.") {
-                    mostrarAviso(`⏭️ Pulando ${file.name} (Sem link do Telegram)`, "warning");
-                    continue; // Pula direto para o próximo vídeo
-                }
-
-                const rowId = 'row-' + Date.now() + '-' + i;
-                const tr = document.createElement('tr');
-                tr.id = rowId;
-                tr.className = "item-postagem skeleton-row flex flex-col md:table-row bg-white border border-slate-200 md:border-none rounded-xl md:rounded-none shadow-sm md:shadow-none overflow-hidden mb-4 md:mb-0";
+            for (let i = 0; i < arrayDeArquivos.length; i += tamanhoDoLote) {
+                const lote = arrayDeArquivos.slice(i, i + tamanhoDoLote);
                 
-                tr.innerHTML = `
-                    <td class="p-4 md:px-6 md:py-4 align-top flex flex-col items-center md:items-start md:table-cell border-b border-slate-100 md:border-none">
-                        <div class="w-32 h-40 bg-slate-200 animate-pulse rounded-lg flex flex-col items-center justify-center mb-2">
-                            <div class="spinner border-orange-500 border-t-transparent"></div>
-                            <span class="text-[9px] text-slate-500 font-bold mt-2">Processando IA...</span>
-                        </div>
-                    </td>
-                    <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none">
-                        <div class="h-10 bg-slate-200 rounded animate-pulse mb-3 w-full"></div>
-                        <div class="h-12 bg-slate-200 rounded animate-pulse w-full"></div>
-                    </td>
-                    <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div><div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div></div>
-                    </td>
-                `;
-                tbody.prepend(tr);
-
-                try {
-                    const framesBase64 = await extrairFlipbook(file);
-                    const iaData = await analisarImagemGemini(framesBase64, apiKey);
+                // Roda até 10 vídeos do lote rigorosamente AO MESMO TEMPO
+                await Promise.all(lote.map(async (file, index) => {
+                    const storedLinkData = linksDoTelegram[file.name];
+                    let originalLink = "Link não encontrado.";
+                    let linkPreConvertido = "";
                     
-                    // Geração do Link Local para tocar o vídeo no navegador sem fazer upload!
-                    const videoUrlLocal = URL.createObjectURL(file);
-                    
-                    const novoPost = {
-                        id: rowId,
-                        videoNome: file.name,
-                        videoUrl: videoUrlLocal,
-                        produto: iaData.produto,
-                        linkOriginal: originalLink,
-                        linkAfiliado: linkPreConvertido, 
-                        legendaInsta: iaData.legenda_instagram,
-                        legendaShopee: iaData.legenda_shopee,
-                        status: 'pendente'
-                    };
-                    
-                    bancoDePostagens.push(novoPost);
-                    renderizarPostDOM(novoPost, true);
-                    atualizarContadores();
-                    window.filtrarTabela();
-                    
-                } catch (error) {
-                    if (error.message.includes("API key not valid")) {
-                        mostrarAviso("Chave da API Inválida! Verifique o Google AI Studio.", "error");
-                        const inputChave = document.getElementById('apiKey');
-                        inputChave.classList.add('border-red-500', 'bg-red-50', 'text-red-700');
-                        setTimeout(() => inputChave.classList.remove('border-red-500', 'bg-red-50', 'text-red-700'), 4000);
+                    if (storedLinkData) {
+                        originalLink = typeof storedLinkData === 'string' ? storedLinkData : (storedLinkData.original || originalLink);
+                        linkPreConvertido = typeof storedLinkData === 'object' ? (storedLinkData.convertido || "") : "";
                     }
-                    atualizarLinhaErro(rowId, file, error.message, originalLink);
-                }
+                    
+                    if(bancoDePostagens.find(p => p.videoNome === file.name)) {
+                        mostrarAviso(`Vídeo ${file.name} já processado na sessão atual.`, "warning");
+                        return; 
+                    }
+
+                    if (originalLink === "Link não encontrado.") {
+                        mostrarAviso(`⏭️ Pulando ${file.name} (Sem link do Telegram)`, "warning");
+                        return;
+                    }
+
+                    const rowId = 'row-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+                    const tr = document.createElement('tr');
+                    tr.id = rowId;
+                    tr.className = "item-postagem skeleton-row flex flex-col md:table-row bg-white border border-slate-200 md:border-none rounded-xl md:rounded-none shadow-sm md:shadow-none overflow-hidden mb-4 md:mb-0";
+                    
+                    tr.innerHTML = `
+                        <td class="p-4 md:px-6 md:py-4 align-top flex flex-col items-center md:items-start md:table-cell border-b border-slate-100 md:border-none">
+                            <div class="w-32 h-40 bg-slate-200 animate-pulse rounded-lg flex flex-col items-center justify-center mb-2">
+                                <div class="spinner border-orange-500 border-t-transparent"></div>
+                                <span class="text-[9px] text-slate-500 font-bold mt-2">Processando IA...</span>
+                            </div>
+                        </td>
+                        <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell border-b border-slate-100 md:border-none">
+                            <div class="h-10 bg-slate-200 rounded animate-pulse mb-3 w-full"></div>
+                            <div class="h-12 bg-slate-200 rounded animate-pulse w-full"></div>
+                        </td>
+                        <td class="p-4 md:px-6 md:py-4 align-top block md:table-cell">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4"><div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div><div class="h-32 bg-slate-200 rounded animate-pulse w-full"></div></div>
+                        </td>
+                    `;
+                    tbody.prepend(tr);
+
+                    try {
+                        const framesBase64 = await extrairFlipbook(file);
+                        const iaData = await analisarImagemGemini(framesBase64, apiKey);
+                        const videoUrlLocal = URL.createObjectURL(file);
+                        
+                        const novoPost = {
+                            id: rowId,
+                            videoNome: file.name,
+                            videoUrl: videoUrlLocal,
+                            produto: iaData.produto,
+                            linkOriginal: originalLink,
+                            linkAfiliado: linkPreConvertido, 
+                            legendaInsta: iaData.legenda_instagram,
+                            legendaShopee: iaData.legenda_shopee,
+                            status: 'pendente'
+                        };
+                        
+                        bancoDePostagens.push(novoPost);
+                        renderizarPostDOM(novoPost, true);
+                        
+                    } catch (error) {
+                        if (error.message.includes("API key not valid")) {
+                            mostrarAviso("Chave da API Inválida! Verifique o Google.", "error");
+                        }
+                        atualizarLinhaErro(rowId, file, error.message, originalLink);
+                    }
+                }));
                 
-                if (i < files.length - 1) await new Promise(r => setTimeout(r, 2500));
+                // Atualiza contadores só depois que o lote de 10 vídeos finalizar
+                atualizarContadores();
+                window.filtrarTabela();
             }
         });
 
@@ -421,26 +422,28 @@
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 const frames = [];
-                const maxFrames = 10; 
+                const maxFrames = 4; // REDUZIDO: 4 fotos deixam o envio instantâneo e a IA ainda entende perfeitamente
 
                 video.muted = true; video.playsInline = true; video.preload = 'auto';
                 video.src = URL.createObjectURL(file);
                 
                 video.onloadeddata = () => {
-                    canvas.width = 480; canvas.height = (video.videoHeight / video.videoWidth) * 480; 
+                    canvas.width = 320; // REDUZIDO: Resolução menor para não pesar a sua internet
+                    canvas.height = (video.videoHeight / video.videoWidth) * 320; 
                     let currentFrame = 1;
                     const interval = video.duration / maxFrames;
 
                     video.onseeked = () => {
                         try {
                             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            const base64Data = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+                            // Qualidade da imagem reduzida para o pacote ficar leve (0.4)
+                            const base64Data = canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
                             frames.push({ inlineData: { data: base64Data, mimeType: "image/jpeg" } });
 
                             currentFrame++;
                             if (currentFrame <= maxFrames) video.currentTime = interval * currentFrame - (interval / 2);
                             else {
-                                URL.revokeObjectURL(video.src); // Limpa o objeto temporário da extração
+                                URL.revokeObjectURL(video.src); 
                                 resolve(frames);
                             }
                         } catch (e) { reject(new Error("Bloqueio de extração.")); }
@@ -455,9 +458,11 @@
         async function analisarImagemGemini(framesArray, apiKey) {
             const prompt = `Copywriter de Afiliados. Retorne um JSON válido com chaves: "produto", "legenda_instagram" (emojis e 5 hashtags ex: #shopee) e "legenda_shopee" (max 140 chars e 2 hashtags). Sempre coloque o link como [LINK AQUI].`;
             const payload = { contents: [{ parts: [{ text: prompt }, ...framesArray] }], generationConfig: { temperature: 0.7 } };
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
+            
+            // ATUALIZADO: Usando o modelo mais recente exigido pelo Google (gemini-3.6-flash)
+            const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
-            let attempt = 0; let delay = 3000;
+            let attempt = 0; let delay = 1000;
             let maxRetries = 3;
             while (attempt < maxRetries) {
                 try {
@@ -473,7 +478,7 @@
                 } catch (error) {
                     if (error.message.startsWith("FATAL: ")) throw new Error(error.message.replace("FATAL: ", ""));
                     attempt++;
-                    if (attempt >= maxRetries) throw new Error("Google lotado no momento.");
+                    if (attempt >= maxRetries) throw new Error("Limite do Google atingido ou internet lenta. Recarregue.");
                     await new Promise(resolve => setTimeout(resolve, delay));
                     delay *= 2; 
                 }
