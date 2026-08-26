@@ -1,4 +1,4 @@
-const CACHE_NAME = 'achadinhos-v7'; // Atualizado para v6 para forçar a limpeza de cache
+const CACHE_NAME = 'achadinhos-v8'; // Atualizado para v6 para forçar a limpeza de cache
 
 // IMPORTANTE: Os arquivos abaixo precisam ter o nome EXATO de como estão no seu PC
 const assets = [
