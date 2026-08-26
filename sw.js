@@ -1,7 +1,9 @@
-const CACHE_NAME = 'achadinhos-v6'; // Mudei para v5 para forçar a atualização
+const CACHE_NAME = 'achadinhos-v6'; // Atualizado para v6 para forçar a limpeza de cache
+
+// IMPORTANTE: Os arquivos abaixo precisam ter o nome EXATO de como estão no seu PC
 const assets = [
   './',
-  './index.html',
+  './index.html', // Se o seu painel se chama gerador-posts.html, troque este nome aqui!
   './manifest.json',
   './icon.svg'
 ];
