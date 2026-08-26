@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Vídeos - Achadinhos 360 (Local)</title>
+    <title>Painel de Vídeos - Achadinhos 360</title>
     
-    <!-- Conectando o App e o Ícone -->
-    <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="icon.svg" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="icon.svg">
+    <!-- Conectando o App e o Ícone (Caminhos relativos seguros para o GitHub) -->
+    <link rel="manifest" href="./manifest.json">
+    <link rel="icon" href="./icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="./icon.svg">
     <meta name="theme-color" content="#f97316">
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -38,7 +38,7 @@
 
     <div class="max-w-[1400px] mx-auto">
         <header class="mb-8 text-center flex flex-col items-center">
-            <h1 class="text-4xl font-bold mb-2">Máquina de Posts <span class="gradient-text">Afiliado IA</span> (Local)</h1>
+            <h1 class="text-4xl font-bold mb-2">Máquina de Posts <span class="gradient-text">Afiliado IA</span></h1>
             <p class="text-slate-500 mb-4">Gerencie vídeos e legendas rapidamente direto da memória do navegador.</p>
             
             <div class="flex flex-wrap gap-4 justify-center items-center w-full max-w-2xl">
@@ -118,11 +118,6 @@
     <script>
         let bancoDePostagens = [];
         let linksDoTelegram = JSON.parse(localStorage.getItem('achadinhos_links') || '{}'); 
-
-        // Registrando PWA
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-        }
 
         // Sistema de Avisos
         function mostrarAviso(mensagem, tipo = 'success') {
@@ -212,20 +207,13 @@
             }
         });
 
-        // NOVA FUNÇÃO: Limpador Extremo de Links
         function normalizarLink(link) {
             if (!link) return '';
-            // Remove quebras de linha e caracteres invisíveis. NÃO converte para minúsculas!
             let limpo = String(link).trim().replace(/[\u200B-\u200D\uFEFF\r\n]/g, '');
-            // 1. Remove http:// e https://
             limpo = limpo.replace(/^https?:\/\//i, '');
-            // 2. Remove www.
             limpo = limpo.replace(/^www\./i, '');
-            // 3. Remove o "s." dos links encurtados da Shopee
             limpo = limpo.replace(/^s\./i, ''); 
-            // 4. Joga fora TUDO que estiver depois do "?"
             limpo = limpo.split('?')[0];
-            // 5. Remove a barra no final
             limpo = limpo.replace(/\/$/, '');
             return limpo;
         }
@@ -233,7 +221,7 @@
         function extrairIdShopee(linkLimpo) {
             if (!linkLimpo) return '';
             const partes = linkLimpo.split('/');
-            return partes[partes.length - 1]; // Pega só o código final (ex: 1LdqY5Sz2O)
+            return partes[partes.length - 1]; 
         }
 
         document.getElementById('planilhaUpload').addEventListener('change', async function(e) {
@@ -246,18 +234,16 @@
             try {
                 let json = [];
                 
-                // NOVO: Leitor blindado para planilhas .CSV Brasileiras e Internacionais
                 if (file.name.toLowerCase().endsWith('.csv')) {
                     const texto = await file.text();
                     const linhas = texto.split(/\r?\n/);
                     for (let linha of linhas) {
                         if (!linha.trim()) continue;
-                        let colunas = linha.split(';'); // Tenta ler padrão Brasileiro
-                        if (colunas.length < 2) colunas = linha.split(','); // Se falhar, tenta Padrão Americano
+                        let colunas = linha.split(';'); 
+                        if (colunas.length < 2) colunas = linha.split(','); 
                         if (colunas.length >= 2) json.push([colunas[0].replace(/"/g, ''), colunas[1].replace(/"/g, '')]);
                     }
                 } else {
-                    // Leitor tradicional para .XLSX
                     const data = await file.arrayBuffer();
                     const workbook = XLSX.read(data, {type: 'array'});
                     const firstSheetName = workbook.SheetNames[0];
@@ -267,7 +253,6 @@
 
                 let linksMapeados = 0;
 
-                // Lê a planilha inteira a partir da Linha 1
                 for (let i = 0; i < json.length; i++) { 
                     const row = json[i];
                     if (!row || row.length < 2) continue;
@@ -275,7 +260,6 @@
                     const original = String(row[0]).trim();
                     const convertido = String(row[1]).trim();
                     
-                    // Pula apenas se for cabeçalho escrito
                     if (original.toLowerCase().includes('original') || !original.includes('http')) continue;
 
                     if (original && convertido) {
@@ -287,9 +271,6 @@
                             const memoriaLimpa = normalizarLink(linkMemoria);
                             const idMemoria = extrairIdShopee(memoriaLimpa);
 
-                            // Comparação Tripla Imbatível:
-                            // 1. O link limpo é idêntico?
-                            // 2. Ou o código único final (ex: 1LdqY5Sz2O) é idêntico?
                             if (
                                 (memoriaLimpa === originalLimpo && memoriaLimpa.length > 0) || 
                                 (idMemoria === idOriginal && idMemoria.length > 5) ||
@@ -332,15 +313,13 @@
             const tbody = document.getElementById('tabelaCorpoPendentes');
             document.getElementById('emptyState').classList.add('hidden');
 
-            // 🔥 MÁXIMA VELOCIDADE: PROCESSAMENTO PARALELO (Lotes de 10) 🔥
             const tamanhoDoLote = 10;
             const arrayDeArquivos = Array.from(files);
 
             for (let i = 0; i < arrayDeArquivos.length; i += tamanhoDoLote) {
                 const lote = arrayDeArquivos.slice(i, i + tamanhoDoLote);
                 
-                // Roda até 10 vídeos do lote rigorosamente AO MESMO TEMPO
-                await Promise.all(lote.map(async (file, index) => {
+                await Promise.all(lote.map(async (file) => {
                     const storedLinkData = linksDoTelegram[file.name];
                     let originalLink = "Link não encontrado.";
                     let linkPreConvertido = "";
@@ -351,12 +330,12 @@
                     }
                     
                     if(bancoDePostagens.find(p => p.videoNome === file.name)) {
-                        mostrarAviso(`Vídeo ${file.name} já processado na sessão atual.`, "warning");
                         return; 
                     }
 
+                    // A Trava: Só pula o vídeo se NÃO achar o link original (Passo 1). Se tiver no passo 1 e não no 2, ele passa.
                     if (originalLink === "Link não encontrado.") {
-                        mostrarAviso(`⏭️ Pulando ${file.name} (Sem link do Telegram)`, "warning");
+                        console.log(`Pulando ${file.name} - Sem link original`);
                         return;
                     }
 
@@ -403,14 +382,10 @@
                         renderizarPostDOM(novoPost, true);
                         
                     } catch (error) {
-                        if (error.message.includes("API key not valid")) {
-                            mostrarAviso("Chave da API Inválida! Verifique o Google.", "error");
-                        }
                         atualizarLinhaErro(rowId, file, error.message, originalLink);
                     }
                 }));
                 
-                // Atualiza contadores só depois que o lote de 10 vídeos finalizar
                 atualizarContadores();
                 window.filtrarTabela();
             }
@@ -422,13 +397,13 @@
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 const frames = [];
-                const maxFrames = 4; // REDUZIDO: 4 fotos deixam o envio instantâneo e a IA ainda entende perfeitamente
+                const maxFrames = 4; // Menos imagens, mais rapidez
 
                 video.muted = true; video.playsInline = true; video.preload = 'auto';
                 video.src = URL.createObjectURL(file);
                 
                 video.onloadeddata = () => {
-                    canvas.width = 320; // REDUZIDO: Resolução menor para não pesar a sua internet
+                    canvas.width = 320; 
                     canvas.height = (video.videoHeight / video.videoWidth) * 320; 
                     let currentFrame = 1;
                     const interval = video.duration / maxFrames;
@@ -436,7 +411,6 @@
                     video.onseeked = () => {
                         try {
                             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                            // Qualidade da imagem reduzida para o pacote ficar leve (0.4)
                             const base64Data = canvas.toDataURL('image/jpeg', 0.4).split(',')[1];
                             frames.push({ inlineData: { data: base64Data, mimeType: "image/jpeg" } });
 
@@ -459,10 +433,10 @@
             const prompt = `Copywriter de Afiliados. Retorne um JSON válido com chaves: "produto", "legenda_instagram" (emojis e 5 hashtags ex: #shopee) e "legenda_shopee" (max 140 chars e 2 hashtags). Sempre coloque o link como [LINK AQUI].`;
             const payload = { contents: [{ parts: [{ text: prompt }, ...framesArray] }], generationConfig: { temperature: 0.7 } };
             
-            // ATUALIZADO: Usando o modelo mais recente exigido pelo Google (gemini-3.6-flash)
+            // Usando o modelo mais atualizado e rápido
             const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
 
-            let attempt = 0; let delay = 1000;
+            let attempt = 0; let delay = 200; // Pausa mínima de 0.2 segundos (apenas para não travar o navegador)
             let maxRetries = 3;
             while (attempt < maxRetries) {
                 try {
@@ -470,17 +444,14 @@
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
                         const errMsg = errorData?.error?.message || response.statusText;
-                        if (response.status === 503 || response.status === 429 || errMsg.toLowerCase().includes('high demand') || errMsg.toLowerCase().includes('quota')) throw new Error(errMsg);
-                        else throw new Error("FATAL: " + errMsg);
+                        throw new Error(errMsg);
                     }
                     const data = await response.json();
                     return JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json/gi, '').replace(/```/g, '').trim());
                 } catch (error) {
-                    if (error.message.startsWith("FATAL: ")) throw new Error(error.message.replace("FATAL: ", ""));
                     attempt++;
-                    if (attempt >= maxRetries) throw new Error("Limite do Google atingido ou internet lenta. Recarregue.");
+                    if (attempt >= maxRetries) throw new Error(error.message);
                     await new Promise(resolve => setTimeout(resolve, delay));
-                    delay *= 2; 
                 }
             }
         }
@@ -492,7 +463,7 @@
             if (isUpdate) {
                 tr = document.getElementById(post.id);
                 if(tr) tr.classList.remove('skeleton-row');
-                if(tr && tr.parentNode !== tbody) tbody.prepend(tr); // Move entre abas se necessário
+                if(tr && tr.parentNode !== tbody) tbody.prepend(tr);
             } 
             
             if (!tr) {
@@ -596,10 +567,7 @@
             if(postIndex === -1) return;
             
             const post = bancoDePostagens[postIndex];
-            
-            // Muito importante liberar o objeto Blob de vídeo da memória do PC
             URL.revokeObjectURL(post.videoUrl);
-            
             bancoDePostagens.splice(postIndex, 1);
             
             const tr = document.getElementById(rowId);
@@ -645,7 +613,7 @@
         function atualizarContadores() {
             document.getElementById('countPendentes').innerText = bancoDePostagens.filter(p => p.status === 'pendente').length;
             document.getElementById('countPostados').innerText = bancoDePostagens.filter(p => p.status === 'postado').length;
-            window.filtrarTabela(); // Para esconder ou mostrar o texto "Nenhum resultado"
+            window.filtrarTabela(); 
         }
 
         window.exportarCSV = function() {
@@ -659,6 +627,26 @@
             const link = document.createElement("a"); link.setAttribute("href", encodeURI(csv)); link.setAttribute("download", `Backup_Afiliados_${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`);
             document.body.appendChild(link); link.click(); document.body.removeChild(link);
         };
+    </script>
+    
+    <!-- REGISTRO DO MOTOR DO APLICATIVO COM LOG DE SEGURANÇA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Trava inteligente: Só tenta instalar se for um site de verdade (http ou https)
+                if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+                    navigator.serviceWorker.register('./sw.js')
+                        .then(registration => {
+                            console.log('App instalado com sucesso! Escopo:', registration.scope);
+                        })
+                        .catch(error => {
+                            console.error('Falha ao instalar o motor do App:', error);
+                        });
+                } else {
+                    console.log('Ambiente de Preview detectado: Instalação do App (PWA) pausada para evitar erros. Funcionará normalmente no GitHub!');
+                }
+            });
+        }
     </script>
 </body>
 </html>
