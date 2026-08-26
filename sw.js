@@ -5,7 +5,7 @@ const assets = [
   './',
   './index.html', // Se o seu painel se chama gerador-posts.html, troque este nome aqui!
   './manifest.json',
-  './icon.svg'
+  './icon.png'
 ];
 
 // Instala o motor no navegador e força a instalação imediata
