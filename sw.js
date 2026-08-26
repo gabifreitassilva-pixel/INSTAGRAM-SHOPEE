@@ -1,46 +1,44 @@
-const CACHE_NAME = 'achadinhos-v8'; // Atualizado para v6 para forçar a limpeza de cache
+const CACHE_NAME = 'achadinhos-v7';
 
-// IMPORTANTE: Os arquivos abaixo precisam ter o nome EXATO de como estão no seu PC
+// Lista de arquivos vitais que o celular vai baixar
 const assets = [
   './',
-  './index.html', // Se o seu painel se chama gerador-posts.html, troque este nome aqui!
+  './index.html',
   './manifest.json',
   './icon.png'
 ];
 
-// Instala o motor no navegador e força a instalação imediata
+// 1. Instalação agressiva (força a entrada)
 self.addEventListener('install', event => {
-  self.skipWaiting(); // Obriga o app novo a assumir o controle na hora
+  self.skipWaiting(); 
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        return cache.addAll(assets);
-      })
+    caches.open(CACHE_NAME).then(cache => {
+      return cache.addAll(assets);
+    })
   );
 });
 
-// NOVO: Essa função é a "faxineira". Ela apaga qualquer cache velho do app antigo!
+// 2. Limpeza de vestígios antigos (apaga o cache quebrado)
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cache => {
           if (cache !== CACHE_NAME) {
-            console.log('Limpando versão antiga do aplicativo...');
+            console.log('Limpando versão antiga do App...');
             return caches.delete(cache);
           }
         })
       );
-    }).then(() => self.clients.claim()) // Toma o controle da tela imediatamente
+    }).then(() => self.clients.claim()) 
   );
 });
 
-// Serve os arquivos do cache
+// 3. Garante que vai funcionar offline depois
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        return response || fetch(event.request);
-      })
+    caches.match(event.request).then(response => {
+      return response || fetch(event.request);
+    })
   );
 });
